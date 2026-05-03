@@ -24,23 +24,19 @@ chat_history: list[dict] = []
 def extract_student_id(authorization: Optional[str]) -> Optional[str]:
     """Extract student ID from authorization token"""
     if not authorization:
-        print("DEBUG: No authorization header provided")
         return None
     
     try:
         token = authorization.replace("Bearer ", "")
         payload = decode_token(token)
-        print(f"DEBUG: Decoded token payload: {payload}")
         
         res = supabase.table("students").select("id").eq("user_id", payload["sub"]).execute()
-        print(f"DEBUG: Student lookup result: {res.data}")
         
         if res.data:
             student_id = res.data[0]["id"]
-            print(f"DEBUG: Found student ID: {student_id}")
             return student_id
         else:
-            print("DEBUG: No student record found for this user")
+            pass
     except Exception as e:
         print(f"DEBUG: Error extracting student ID: {e}")
     return None
@@ -51,15 +47,15 @@ def fetch_student_profile(student_id: str) -> Dict[str, Any]:
     try:
         # Student basic info
         student = supabase.table("students").select("*, users(name, email, created_at)").eq("id", student_id).execute()
-        print(f"DEBUG: Student query result: {student.data}")
+        
         
         # Courses enrolled
         enrollments = supabase.table("enrollments").select("*, courses(title, code, credits)").eq("student_id", student_id).execute()
-        print(f"DEBUG: Enrollments query result: {enrollments.data}")
+        
         
         # Grades
         grades = supabase.table("grades").select("value, course_id, courses(title, code)").eq("student_id", student_id).execute()
-        print(f"DEBUG: Grades query result: {grades.data}")
+        
         
         # Convert 'value' to 'grade' for consistency
         for grade_record in grades.data:
@@ -68,7 +64,10 @@ def fetch_student_profile(student_id: str) -> Dict[str, Any]:
         
         # Attendance
         attendance = supabase.table("attendance").select("status, date, courses(title)").eq("student_id", student_id).order("date", desc=True).limit(20).execute()
-        print(f"DEBUG: Attendance query result: {attendance.data}")
+        
+        # Student preferences
+        preferences = supabase.table("student_preference").select("value").eq("student_id", student_id).execute()
+        
         
         # Calculate GPA and attendance stats
         gpa = calculate_gpa(grades.data) if grades.data else None
@@ -81,9 +80,9 @@ def fetch_student_profile(student_id: str) -> Dict[str, Any]:
             "gpa": gpa,
             "attendance": attendance_stats,
             "total_credits": sum(e["courses"]["credits"] for e in enrollments.data) if enrollments.data else 0,
+            "preferences": [p["value"] for p in preferences.data] if preferences.data else [],
         }
         
-        print(f"DEBUG: Final profile: {profile}")
         return profile
     except Exception as e:
         print(f"Error fetching student profile: {e}")
@@ -92,7 +91,6 @@ def fetch_student_profile(student_id: str) -> Dict[str, Any]:
 
 def calculate_gpa(grades: list) -> float:
     """Calculate student GPA from grades"""
-    print(f"DEBUG: Calculating GPA from grades: {grades}")
     grade_map = {"A": 4.0, "A-": 3.7, "B+": 3.3, "B": 3.0, "B-": 2.7, "C+": 2.3, "C": 2.0, "C-": 1.7, "D": 1.0, "F": 0.0}
     valid_grades = []
     for g in grades:
@@ -104,7 +102,6 @@ def calculate_gpa(grades: list) -> float:
             valid_grades.append(float(grade_value))
     
     gpa = sum(valid_grades) / len(valid_grades) if valid_grades else 0
-    print(f"DEBUG: Calculated GPA: {gpa}")
     return gpa
 
 
@@ -152,6 +149,9 @@ Current Courses:
 Attendance Summary:
 {format_attendance(student_profile.get('attendance', {}))}
 
+Student Preferences:
+{format_preferences(student_profile.get('preferences', []))}
+
 [END STUDENT PROFILE]
 """
     return context
@@ -191,6 +191,17 @@ def format_attendance(attendance_stats: dict) -> str:
   • Late: {attendance_stats.get('late', 0)} times"""
 
 
+def format_preferences(preferences: list) -> str:
+    """Format student preferences for display"""
+    if not preferences:
+        return "- No preferences recorded yet"
+    
+    formatted = []
+    for pref in preferences:
+        formatted.append(f"  • {pref}")
+    return "\n".join(formatted)
+
+
 def call_model(message: str, student_context: str = "") -> str:
     global chat_history
     chat_history.append({"role": "user", "content": message})
@@ -205,7 +216,8 @@ Your role is to:
 
 When providing advice:
 - Reference specific courses, grades, or attendance issues if available
-- Provide actionable recommendations
+- Take into account the student's recorded preferences and tailor your advice accordingly
+- Provide actionable recommendations that align with their stated preferences
 - Celebrate achievements and improvements
 - Suggest resources or support if needed (tutoring, office hours, counseling)
 - Be professional but conversational"""
@@ -240,8 +252,7 @@ def chat(req: ChatRequest, authorization: Annotated[Optional[str], Header()] = N
             profile = fetch_student_profile(student_id)
             student_context = build_student_context(profile)
     
-    print(f"DEBUG: Student context length: {len(student_context)}")
-    print(f"DEBUG: Student context preview: {student_context[:500]}...")
+    
     
     answer = call_model(req.message, student_context)
     # session_id is a placeholder until Point 6 wires up DB persistence
