@@ -4,6 +4,26 @@
 
 ---
 
+## Week 6 - 2026-05-11
+
+**What I worked on:**
+Added comprehensive overview section to student dashboard with academic snapshot. Created StatCard component for displaying key metrics (enrolled courses, GPA, assignments, attendance rate). Implemented real-time GPA calculation and attendance percentage. Added preview tables for recent courses and assignments with navigation to full views. Enhanced user experience with loading states and empty state handling.
+
+**What I learned:**
+Advanced React state management for complex data aggregation and real-time calculations. Improved understanding of responsive grid layouts and component composition patterns.
+
+---
+
+## Week 5 - 2026-05-04
+
+**What I worked on:**
+Refined student dashboard UI consistency and fixed frontend-backend integration issues. Resolved assignment submission schema mismatch between frontend (sending content) and backend (expecting file_url). Added proper error handling for API calls and improved loading state management across all tabs. Enhanced accessibility and responsive design for mobile devices.
+
+**What I learned:**
+Deepened understanding of API integration patterns and error boundary implementation. Mastered cross-component state synchronization and performance optimization techniques.
+
+---
+
 ## Week 4 - 2026-04-22
 
 **What I worked on:**
@@ -16,9 +36,31 @@ Mastered React hooks for state management across multiple data sources and API i
 
 ## Week 3 - 2026-04-15
 
+**What I worked on:**
+Developed core student dashboard structure and implemented tabbed navigation system. Built initial components for courses, grades, and attendance views. Created API service layer with proper authentication headers and error handling. Established responsive design patterns with Tailwind CSS and implemented loading states for all data fetching operations.
+
+**What I learned:**
+Fundamentals of React component architecture and state management with hooks. Understanding of RESTful API integration and authentication flow patterns.
+
 ---
 
 ## Week 2 - 2026-04-08
+
+**What I worked on:**
+Set up project foundation and basic React application structure. Configured Vite build system and Tailwind CSS. Created initial routing with React Router and built basic login/home pages. Implemented authentication context and API client configuration with axios interceptors.
+
+**What I learned:**
+Project setup fundamentals, build tool configuration, and basic frontend development workflow. Introduction to modern React patterns and CSS utility frameworks.
+
+---
+
+## Week 1 - 2026-04-01
+
+**What I worked on:**
+Project initialization and environment setup. Installed and configured Node.js, React, and development dependencies. Created Git repository and established project structure. Set up development environment with VS Code extensions and configured package.json scripts.
+
+**What I learned:**
+Version control basics, modern JavaScript tooling, and project scaffolding principles. Understanding of package management and development server configuration.
 
 ---
 
