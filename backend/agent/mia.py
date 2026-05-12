@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Header
-from schemas.mia import ChatRequest, ChatResponse
+from schemas.mia import ChatRequest, ChatResponse, SessionRead, MessageRead
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -17,8 +17,42 @@ client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
 )
 
-# Temporary in-memory history — will be replaced in Point 6 with DB persistence
+# Temporary in-memory history for unauthenticated users
 chat_history: list[dict] = []
+
+
+def create_chat_session(student_id: str) -> str:
+    res = supabase.table("chat_sessions").insert({"student_id": student_id}).execute()
+    if not res.data:
+        raise HTTPException(status_code=500, detail="Failed to create chat session")
+    return res.data[0]["id"]
+
+
+def validate_chat_session(student_id: str, session_id: str) -> str:
+    res = supabase.table("chat_sessions").select("id").eq("id", session_id).eq("student_id", student_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    return session_id
+
+
+def save_chat_message(session_id: str, role: str, content: str) -> None:
+    supabase.table("messages").insert({"session_id": session_id, "role": role, "content": content}).execute()
+
+
+def load_chat_history(session_id: str) -> list[dict]:
+    res = supabase.table("messages").select("role, content").eq("session_id", session_id).order("created_at", desc=False).execute()
+    return res.data or []
+
+
+def list_student_sessions(student_id: str) -> list[dict]:
+    res = supabase.table("chat_sessions").select("id, title, created_at, updated_at").eq("student_id", student_id).order("created_at", desc=True).execute()
+    return res.data or []
+
+
+def get_session_messages(student_id: str, session_id: str) -> list[dict]:
+    validate_chat_session(student_id, session_id)
+    res = supabase.table("messages").select("id, session_id, role, content, created_at").eq("session_id", session_id).order("created_at", desc=False).execute()
+    return res.data or []
 
 
 def extract_student_id(authorization: Optional[str]) -> Optional[str]:
@@ -66,7 +100,7 @@ def fetch_student_profile(student_id: str) -> Dict[str, Any]:
         attendance = supabase.table("attendance").select("status, date, courses(title)").eq("student_id", student_id).order("date", desc=True).limit(20).execute()
         
         # Student preferences
-        preferences = supabase.table("student_preference").select("value").eq("student_id", student_id).execute()
+        preferences = supabase.table("student_preferences").select("preference_text").eq("student_id", student_id).execute()
         
         
         # Calculate GPA and attendance stats
@@ -202,10 +236,7 @@ def format_preferences(preferences: list) -> str:
     return "\n".join(formatted)
 
 
-def call_model(message: str, student_context: str = "") -> str:
-    global chat_history
-    chat_history.append({"role": "user", "content": message})
-    
+def call_model(messages: list[dict], student_context: str = "") -> str:
     system_message = """You are M.I.A (Metropolitan Information Agent), a helpful and empathetic academic advisor at a university.
 Your role is to:
 1. Provide personalized academic guidance based on the student's performance and enrollment
@@ -229,31 +260,56 @@ When providing advice:
         model="llama-3.1-8b-instant",
         messages=[
             {"role": "system", "content": system_message},
-            *chat_history,
+            *messages,
         ],
         temperature=0.7,
         max_tokens=1024,
     )
     
-    reply = completion.choices[0].message.content
-    chat_history = chat_history[-10:]
-    chat_history.append({"role": "assistant", "content": reply})
-    return reply
+    return completion.choices[0].message.content
 
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest, authorization: Annotated[Optional[str], Header()] = None):
     student_context = ""
-    
-    # If authorization header provided, fetch student context
+    session_id = req.session_id
+
     if authorization:
         student_id = extract_student_id(authorization)
-        if student_id:
-            profile = fetch_student_profile(student_id)
-            student_context = build_student_context(profile)
-    
-    
-    
-    answer = call_model(req.message, student_context)
-    # session_id is a placeholder until Point 6 wires up DB persistence
-    return {"response": answer, "session_id": "temporary"}
+        if not student_id:
+            raise HTTPException(status_code=401, detail="Invalid authorization token")
+
+        profile = fetch_student_profile(student_id)
+        student_context = build_student_context(profile)
+
+        if session_id:
+            session_id = validate_chat_session(student_id, session_id)
+        else:
+            session_id = create_chat_session(student_id)
+
+        history = load_chat_history(session_id)
+        save_chat_message(session_id, "user", req.message)
+        answer = call_model(history + [{"role": "user", "content": req.message}], student_context)
+        save_chat_message(session_id, "assistant", answer)
+        return {"response": answer, "session_id": session_id}
+
+    # Fallback when no authorization is provided: keep in-memory history only
+    chat_history.append({"role": "user", "content": req.message})
+    answer = call_model(chat_history, student_context)
+    chat_history[:] = chat_history[-10:]
+    chat_history.append({"role": "assistant", "content": answer})
+    return {"response": answer, "session_id": session_id or "temporary"}
+
+
+@router.get("/sessions", response_model=list[SessionRead])
+def get_chat_sessions(authorization: Annotated[str, Header()]):
+    token = authorization.replace("Bearer ", "")
+    student_id = extract_student_id(token)
+    return list_student_sessions(student_id)
+
+
+@router.get("/sessions/{session_id}/messages", response_model=list[MessageRead])
+def get_chat_session_messages(session_id: str, authorization: Annotated[str, Header()]):
+    token = authorization.replace("Bearer ", "")
+    student_id = extract_student_id(token)
+    return get_session_messages(student_id, session_id)
