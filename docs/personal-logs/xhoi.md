@@ -4,6 +4,14 @@
 
 ---
 
+## Week 6 — 2026-05-16
+
+This week I focused on bug fixes and feature improvements across both the admin and professor dashboards, and the student-facing views. I fixed a critical bug in the admin user edit flow where the backend was using the wrong Pydantic model (`UserCreate` instead of `UserUpdate`), causing any edit without a password change to fail with a validation error. I added multi-file upload support for course materials and assignments — professors can now select and upload multiple files at once, with materials creating one database record per file and assignments storing file references as JSON arrays. On the student dashboard I corrected the attendance display, replacing the hardcoded `/2h` denominator with a calculated session duration derived from the recorded `session_start` and `session_end` times, and removed a broken session-type badge that always showed "lab" regardless of actual data. I also removed the interim grades sub-tab from the course info view as it was surfacing incomplete data. Finally I investigated and fixed several bugs in the MIA chat integration — a wrong dictionary key in the student profile fetch, a schema mismatch between the code and the actual `chat_sessions` table columns, and silent error swallowing on the frontend that left the user with no feedback when the chat failed.
+
+**Tech explored:** FastAPI form validation with optional fields, multipart file uploads with `List[UploadFile]`, JSON storage for variable-length relations, Supabase table schema alignment, React error state patterns.
+
+---
+
 ## Week 5 — 2026-05-11
 
 This week I focused on system design documentation and frontend polish. I created UI system design diagrams for all four main views — Home/Login, Student Dashboard, Professor Dashboard, and Admin Dashboard — and organised them into the project docs. On the frontend side, I continued refining the React components and layout details across the dashboards to bring them closer to the final design spec.
