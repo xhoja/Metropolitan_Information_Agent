@@ -65,19 +65,6 @@ def get_courses(authorization: str = Header(...)):
     res = supabase.table("courses").select("*").eq("professor_id", prof_id).execute()
     return res.data
 
-@router.post("/courses")
-def create_course(data: CourseCreate, authorization: str = Header(...)):
-    token = authorization.replace("Bearer ", "")
-    prof_id = get_professor_id(token)
-    res = supabase.table("courses").insert({
-        "code": data.code,
-        "title": data.title,
-        "credits": data.credits,
-        "department": data.department,
-        "description": data.description,
-        "professor_id": prof_id
-    }).execute()
-    return res.data[0]
 
 @router.post("/grades")
 def add_grade(data: GradeInput, authorization: str = Header(...)):

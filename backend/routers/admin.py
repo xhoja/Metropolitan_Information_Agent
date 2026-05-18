@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
+from typing import Optional
 from models import UserCreate, UserUpdate
 from db import supabase
 from routers.auth import hash_password, decode_token
@@ -11,6 +12,14 @@ class EnrollmentCreate(BaseModel):
     student_id: str
     course_id: str
     semester: str
+
+class CourseCreate(BaseModel):
+    code: str
+    title: str
+    credits: int
+    department: Optional[str] = None
+    description: Optional[str] = None
+    professor_id: Optional[str] = None
 
 def require_admin(token: str):
     payload = decode_token(token)
@@ -53,6 +62,13 @@ def get_all_users(authorization: str = Header(...)):
     require_admin(token)
     res = supabase.table("users").select("id, name, email, role, created_at").execute()
     return res.data
+
+@router.get("/professors")
+def get_professors(authorization: str = Header(...)):
+    token = authorization.replace("Bearer ", "")
+    require_admin(token)
+    rows = supabase.table("professors").select("id, user_id, users(name, email)").execute().data
+    return [{"id": r["id"], "name": r["users"]["name"], "email": r["users"]["email"]} for r in rows if r.get("users")]
 
 @router.put("/users/{user_id}")
 def update_user(user_id: str, data: UserUpdate, authorization: str = Header(...)):
@@ -115,6 +131,20 @@ def get_all_courses(authorization: str = Header(...)):
             "enrollment_count": enrollment_count
         })
     return result
+
+@router.post("/courses")
+def create_course(data: CourseCreate, authorization: str = Header(...)):
+    token = authorization.replace("Bearer ", "")
+    require_admin(token)
+    res = supabase.table("courses").insert({
+        "code": data.code,
+        "title": data.title,
+        "credits": data.credits,
+        "department": data.department,
+        "description": data.description,
+        "professor_id": data.professor_id,
+    }).execute()
+    return res.data[0]
 
 @router.post("/enrollments")
 def create_enrollment(data: EnrollmentCreate, authorization: str = Header(...)):

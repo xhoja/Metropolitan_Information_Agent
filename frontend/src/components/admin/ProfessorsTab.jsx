@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function ProfessorsTab({ users }) {
+export default function ProfessorsTab({ users, onRemove }) {
   const [search, setSearch] = useState('')
   const professors = users.filter(u => u.role === 'professor')
   const filtered = professors.filter(p =>
@@ -36,7 +36,7 @@ export default function ProfessorsTab({ users }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800">
-                {['Name', 'Email', 'Joined'].map(h => (
+                {['Name', 'Email', 'Joined', ''].map(h => (
                   <th key={h} className="text-left px-6 py-4 text-slate-500 font-medium text-xs uppercase tracking-widest">{h}</th>
                 ))}
               </tr>
@@ -48,6 +48,17 @@ export default function ProfessorsTab({ users }) {
                   <td className="px-6 py-4 text-slate-400 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>{p.email}</td>
                   <td className="px-6 py-4 text-slate-500 text-xs">
                     {p.created_at ? new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    {onRemove && (
+                      <button
+                        onClick={() => onRemove(p)}
+                        className="text-slate-500 hover:text-rose-400 transition-colors p-1 rounded hover:bg-slate-700 text-base leading-none"
+                        title="Remove professor"
+                      >
+                        ×
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

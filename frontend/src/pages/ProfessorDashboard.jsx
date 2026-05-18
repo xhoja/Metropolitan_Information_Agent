@@ -12,7 +12,6 @@ const TABS = [
   { id: 'attendance',   label: 'Attendance' },
 ]
 
-const EMPTY_COURSE = { code: '', title: '', credits: 3, department: '', description: '' }
 const EMPTY_ASSIGNMENT = { title: '', description: '', due_date: '', course_id: '', type: 'homework' }
 const EMPTY_GRADE = { student_id: '', course_id: '', value: '', semester: '', grade_type: '', weight: '' }
 const TODAY = new Date().toISOString().split('T')[0]
@@ -26,12 +25,6 @@ export default function ProfessorDashboard() {
   const [courses, setCourses]           = useState([])
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState('')
-
-  // courses tab
-  const [courseModal, setCourseModal]   = useState(false)
-  const [courseForm, setCourseForm]     = useState(EMPTY_COURSE)
-  const [courseSaving, setCourseSaving] = useState(false)
-  const [courseError, setCourseError]   = useState('')
 
   // roster tab
   const [rosterCourse, setRosterCourse]   = useState('')
@@ -154,22 +147,6 @@ export default function ProfessorDashboard() {
       .catch(() => setAssignments([]))
       .finally(() => setAssignLoading(false))
   }, [selectedCourse])
-
-  const handleCreateCourse = async (e) => {
-    e.preventDefault()
-    setCourseSaving(true)
-    setCourseError('')
-    try {
-      await api.post('/professor/courses', { ...courseForm, credits: Number(courseForm.credits) })
-      await fetchCourses()
-      setCourseModal(false)
-      setCourseForm(EMPTY_COURSE)
-    } catch (err) {
-      setCourseError(err.response?.data?.detail || 'Failed to create course.')
-    } finally {
-      setCourseSaving(false)
-    }
-  }
 
   const handleDeleteAssignment = async (id) => {
     if (!window.confirm('Delete this assignment?')) return
@@ -348,20 +325,9 @@ export default function ProfessorDashboard() {
         {/* COURSES */}
         {tab === 'courses' && (
           <div>
-            <div className="flex items-end justify-between mb-8">
-              <div>
-                <p className="text-amber-500 text-xs font-medium uppercase tracking-[0.2em] mb-1">Teaching</p>
-                <h1 className="text-3xl font-semibold text-white tracking-tight">My Courses</h1>
-              </div>
-              <button
-                onClick={() => { setCourseForm(EMPTY_COURSE); setCourseError(''); setCourseModal(true) }}
-                className="flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition shadow-lg shadow-amber-900/30"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                New Course
-              </button>
+            <div className="mb-8">
+              <p className="text-amber-500 text-xs font-medium uppercase tracking-[0.2em] mb-1">Teaching</p>
+              <h1 className="text-3xl font-semibold text-white tracking-tight">My Courses</h1>
             </div>
 
             {loading ? (
@@ -369,7 +335,7 @@ export default function ProfessorDashboard() {
             ) : error ? (
               <div className="flex items-center justify-center py-24 text-red-400 text-sm">{error}</div>
             ) : courses.length === 0 ? (
-              <EmptyState message="No courses yet. Create your first course." />
+              <EmptyState message="No courses assigned yet. Contact admin to create courses." />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {courses.map(c => (
@@ -1005,36 +971,6 @@ export default function ProfessorDashboard() {
         })()}
 
       </main>
-
-      {/* Create Course Modal */}
-      {courseModal && (
-        <Modal title="Create New Course" onClose={() => setCourseModal(false)}>
-          <form onSubmit={handleCreateCourse} className="flex flex-col gap-4">
-            <Field label="Course Code">
-              <input required value={courseForm.code} onChange={e => setCourseForm(f => ({ ...f, code: e.target.value }))} placeholder="e.g. CS101" className="input-base" />
-            </Field>
-            <Field label="Title">
-              <input required value={courseForm.title} onChange={e => setCourseForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Introduction to Programming" className="input-base" />
-            </Field>
-            <Field label="Credits">
-              <input required type="number" min="1" max="12" value={courseForm.credits} onChange={e => setCourseForm(f => ({ ...f, credits: e.target.value }))} className="input-base" />
-            </Field>
-            <Field label="Department">
-              <input value={courseForm.department} onChange={e => setCourseForm(f => ({ ...f, department: e.target.value }))} placeholder="e.g. Computer Science" className="input-base" />
-            </Field>
-            <Field label="Description">
-              <textarea value={courseForm.description} onChange={e => setCourseForm(f => ({ ...f, description: e.target.value }))} placeholder="Short course description…" rows={3} className="input-base resize-none" />
-            </Field>
-            {courseError && <p className="text-rose-400 text-sm">{courseError}</p>}
-            <div className="flex gap-3 pt-1">
-              <button type="button" onClick={() => setCourseModal(false)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium py-2.5 rounded-lg transition">Cancel</button>
-              <button type="submit" disabled={courseSaving} className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition">
-                {courseSaving ? 'Creating…' : 'Create Course'}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
 
       {/* Create Assignment Modal */}
       {assignModal && (

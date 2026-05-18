@@ -35,6 +35,22 @@ export default function AttendanceTab() {
     late:    records.filter(r => r.status === 'late').length,
   }
 
+  // Group filtered records by course → date
+  const grouped = filtered.reduce((acc, r) => {
+    const course = r.course_title || r.course_id || 'Unknown Course'
+    const date   = r.date || 'Unknown Date'
+    const key    = `${course}|||${date}`
+    if (!acc[key]) acc[key] = { course, date, rows: [] }
+    acc[key].rows.push(r)
+    return acc
+  }, {})
+
+  const sessions = Object.values(grouped).sort((a, b) => {
+    if (a.course < b.course) return -1
+    if (a.course > b.course) return 1
+    return a.date < b.date ? -1 : 1
+  })
+
   return (
     <div>
       <div className="mb-8">
@@ -76,37 +92,53 @@ export default function AttendanceTab() {
         </select>
       </div>
 
-      <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div className="space-y-3">
         {loading ? (
-          <div className="flex items-center justify-center py-24 text-slate-500 text-sm">Loading…</div>
+          <div className="bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center py-24 text-slate-500 text-sm">Loading…</div>
         ) : error ? (
-          <PendingEndpoint endpoint="GET /admin/attendance" />
-        ) : filtered.length === 0 ? (
-          <div className="flex items-center justify-center py-24 text-slate-500 text-sm">No records found.</div>
+          <div className="bg-slate-800 border border-slate-700 rounded-xl"><PendingEndpoint endpoint="GET /admin/attendance" /></div>
+        ) : sessions.length === 0 ? (
+          <div className="bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center py-24 text-slate-500 text-sm">No records found.</div>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-800">
-                {['Student', 'Course', 'Date', 'Status'].map(h => (
-                  <th key={h} className="text-left px-6 py-4 text-slate-500 font-medium text-xs uppercase tracking-widest">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r, i) => (
-                <tr key={r.id || i} className={`hover:bg-slate-950/40 transition-colors ${i < filtered.length - 1 ? 'border-b border-slate-800/60' : ''}`}>
-                  <td className="px-6 py-4 font-medium text-white">{r.student_name || r.student_id}</td>
-                  <td className="px-6 py-4 text-slate-400">{r.course_title || r.course_id}</td>
-                  <td className="px-6 py-4 text-slate-400 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>{r.date}</td>
-                  <td className="px-6 py-4">
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-md capitalize ${STATUS_STYLES[r.status] || ''}`}>
-                      {r.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          sessions.map(session => {
+            const sessionCounts = {
+              present: session.rows.filter(r => r.status === 'present').length,
+              absent:  session.rows.filter(r => r.status === 'absent').length,
+              late:    session.rows.filter(r => r.status === 'late').length,
+            }
+            return (
+              <div key={`${session.course}|||${session.date}`} className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+                {/* Session header */}
+                <div className="flex items-center justify-between px-6 py-3 border-b border-slate-700 bg-slate-800/80">
+                  <div className="flex items-center gap-3">
+                    <span className="text-white font-medium text-sm">{session.course}</span>
+                    <span className="text-slate-500 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>{session.date}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs">
+                    {sessionCounts.present > 0 && <span className="text-emerald-400">{sessionCounts.present} present</span>}
+                    {sessionCounts.absent  > 0 && <span className="text-rose-400">{sessionCounts.absent} absent</span>}
+                    {sessionCounts.late    > 0 && <span className="text-amber-400">{sessionCounts.late} late</span>}
+                    <span className="text-slate-500">{session.rows.length} students</span>
+                  </div>
+                </div>
+                {/* Student rows */}
+                <table className="w-full text-sm">
+                  <tbody>
+                    {session.rows.map((r, i) => (
+                      <tr key={r.id || i} className={`hover:bg-slate-950/40 transition-colors ${i < session.rows.length - 1 ? 'border-b border-slate-800/60' : ''}`}>
+                        <td className="px-6 py-3 font-medium text-white">{r.student_name || r.student_id}</td>
+                        <td className="px-6 py-3 text-right">
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-md capitalize ${STATUS_STYLES[r.status] || ''}`}>
+                            {r.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })
         )}
       </div>
     </div>

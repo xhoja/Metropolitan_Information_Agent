@@ -262,8 +262,8 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {tab === 'students'    && <StudentsTab   users={users} />}
-        {tab === 'professors'  && <ProfessorsTab users={users} />}
+        {tab === 'students'    && <StudentsTab   users={users} onRemove={setDeleteTarget} />}
+        {tab === 'professors'  && <ProfessorsTab users={users} onRemove={setDeleteTarget} />}
         {tab === 'courses'     && <CoursesTab />}
         {tab === 'enrollments' && <EnrollmentsTab />}
         {tab === 'attendance'  && <AttendanceTab />}

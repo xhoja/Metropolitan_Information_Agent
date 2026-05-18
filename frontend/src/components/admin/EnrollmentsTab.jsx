@@ -51,6 +51,15 @@ export default function EnrollmentsTab() {
     e.course_code?.toLowerCase().includes(search.toLowerCase())
   )
 
+  // Group by student
+  const byStudent = filtered.reduce((acc, e) => {
+    const key = e.student_id || e.student_name
+    if (!acc[key]) acc[key] = { name: e.student_name || e.student_id, enrollments: [] }
+    acc[key].enrollments.push(e)
+    return acc
+  }, {})
+  const studentGroups = Object.values(byStudent).sort((a, b) => a.name.localeCompare(b.name))
+
   return (
     <div>
       <div className="mb-8">
@@ -130,42 +139,49 @@ export default function EnrollmentsTab() {
           <div className="flex items-center justify-center py-24 text-slate-500 text-sm">Loading…</div>
         ) : error ? (
           <div className="flex items-center justify-center py-24 text-rose-400 text-sm">{error}</div>
-        ) : filtered.length === 0 ? (
+        ) : studentGroups.length === 0 ? (
           <div className="flex items-center justify-center py-24 text-slate-500 text-sm">
             {search ? 'No enrollments match your search.' : 'No enrollments yet.'}
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-800">
-                {['Student', 'Course', 'Code', 'Enrolled On', ''].map(h => (
+              <tr className="border-b border-slate-700">
+                {['Student', 'Enrolled Courses'].map(h => (
                   <th key={h} className="text-left px-6 py-4 text-slate-500 font-medium text-xs uppercase tracking-widest">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((e, i) => (
-                <tr key={e.id} className={`hover:bg-slate-950/40 transition-colors ${i < filtered.length - 1 ? 'border-b border-slate-800/60' : ''}`}>
-                  <td className="px-6 py-4 font-medium text-white">{e.student_name || e.student_id}</td>
-                  <td className="px-6 py-4 text-slate-300">{e.course_title || e.course_id}</td>
+              {studentGroups.map((g, i) => (
+                <tr key={g.name} className={`hover:bg-slate-950/40 transition-colors align-top ${i < studentGroups.length - 1 ? 'border-b border-slate-800/60' : ''}`}>
+                  <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{g.name}</td>
                   <td className="px-6 py-4">
-                    {e.course_code && (
-                      <span className="text-xs font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">{e.course_code}</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-slate-500 text-xs">
-                    {e.created_at ? new Date(e.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => {
-                        if (!window.confirm(`Remove ${e.student_name} from ${e.course_title}?`)) return
-                        api.delete(`/admin/enrollments/${e.id}`).then(load).catch(() => {})
-                      }}
-                      className="text-rose-400 hover:text-rose-300 text-xs font-medium transition"
-                    >
-                      Remove
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      {g.enrollments.map(e => (
+                        <div key={e.id} className="flex items-center gap-1.5 bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-1.5">
+                          {e.course_code && (
+                            <span className="text-xs font-mono text-amber-400">{e.course_code}</span>
+                          )}
+                          <span className="text-xs text-slate-300">{e.course_title || e.course_id}</span>
+                          {e.created_at && (
+                            <span className="text-xs text-slate-500 ml-1">
+                              {new Date(e.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => {
+                              if (!window.confirm(`Remove ${e.student_name} from ${e.course_title}?`)) return
+                              api.delete(`/admin/enrollments/${e.id}`).then(load).catch(() => {})
+                            }}
+                            className="ml-1 text-slate-500 hover:text-rose-400 transition text-xs leading-none"
+                            title="Remove enrollment"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </td>
                 </tr>
               ))}
