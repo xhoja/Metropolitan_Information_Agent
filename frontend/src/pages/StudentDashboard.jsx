@@ -371,8 +371,11 @@ export default function StudentDashboard() {
                             key={assignment.id}
                             className={`hover:bg-slate-950/40 transition-colors ${i < assignments.slice(0, 3).length - 1 ? "border-b border-slate-800/60" : ""}`}
                           >
-                            <td className="px-6 py-3.5 font-medium text-white">
-                              {assignment.title}
+                            <td className="px-6 py-3.5">
+                              <div className="font-medium text-white">{assignment.title}</div>
+                              {assignment.course_name && (
+                                <div className="text-xs text-slate-400 mt-0.5">{assignment.course_name}</div>
+                              )}
                             </td>
                             <td className="px-6 py-3.5 text-slate-400 text-xs">
                               Due:{" "}

@@ -50,11 +50,15 @@ def get_transcript(authorization: Annotated[str, Header()]):
 def get_my_assignments(authorization: Annotated[str, Header()]):
     token = authorization.replace(BEARER_PREFIX, "")
     student_id = get_student_id(token)
-    enrollments = supabase.table("enrollments").select("course_id").eq("student_id", student_id).execute().data
-    course_ids = [e["course_id"] for e in enrollments]
+    enrollments = supabase.table("enrollments").select("course_id, courses(title, code)").eq("student_id", student_id).execute().data
+    course_map = {e["course_id"]: (e.get("courses") or {}) for e in enrollments}
+    course_ids = list(course_map.keys())
     assignments = []
     for cid in course_ids:
         res = supabase.table("assignments").select("*").eq("course_id", cid).execute()
+        for a in res.data:
+            a["course_name"] = course_map.get(cid, {}).get("title", "")
+            a["course_code"] = course_map.get(cid, {}).get("code", "")
         assignments.extend(res.data)
     return assignments
 
