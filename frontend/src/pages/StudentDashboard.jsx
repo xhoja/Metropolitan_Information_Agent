@@ -26,6 +26,7 @@ export default function StudentDashboard() {
 
   const [grades, setGrades] = useState([]);
   const [gradesLoading, setGradesLoading] = useState(true);
+  const [selectedGradeCourse, setSelectedGradeCourse] = useState(null);
 
   const [attendance, setAttendance] = useState([]);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
@@ -254,48 +255,39 @@ export default function StudentDashboard() {
                   />
                   <StatCard
                     label="Attendance Rate"
-                    value={
-                      attendance.length > 0
-                        ? (() => {
-                            // Group by course and calculate using the new logic
-                            const courseGroups = attendance.reduce(
-                              (acc, record) => {
-                                const courseId = record.course_id;
-                                if (!acc[courseId]) acc[courseId] = [];
-                                acc[courseId].push(record);
-                                return acc;
-                              },
-                              {},
-                            );
-
-                            let totalHoursPresent = 0;
-                            let totalHoursScheduled = 0;
-
-                            Object.values(courseGroups).forEach((records) => {
-                              const hoursPresent = records.reduce(
-                                (sum, r) => sum + r.hours_present,
-                                0,
-                              );
-                              const weeksRecorded = new Set(
-                                records.map((r) => r.week_number),
-                              ).size;
-                              const hoursScheduled = weeksRecorded * 4;
-
-                              totalHoursPresent += hoursPresent;
-                              totalHoursScheduled += hoursScheduled;
-                            });
-
-                            const rate =
-                              totalHoursScheduled > 0
-                                ? (totalHoursPresent / totalHoursScheduled) *
-                                  100
-                                : 100;
-
-                            return Math.round(rate) + "%";
-                          })()
-                        : "N/A"
-                    }
                     color="text-purple-400"
+                    {...(() => {
+                      if (attendance.length === 0) return { value: "N/A", subtitle: "No sessions recorded yet" };
+
+                      const courseGroups = attendance.reduce((acc, record) => {
+                        const courseId = record.course_id;
+                        if (!acc[courseId]) acc[courseId] = [];
+                        acc[courseId].push(record);
+                        return acc;
+                      }, {});
+
+                      let totalHoursPresent = 0;
+                      let totalHoursScheduled = 0;
+
+                      Object.values(courseGroups).forEach((records) => {
+                        const hoursPresent = records.reduce((sum, r) => sum + r.hours_present, 0);
+                        const weeksRecorded = new Set(records.map((r) => r.week_number)).size;
+                        totalHoursPresent += hoursPresent;
+                        totalHoursScheduled += weeksRecorded * 4;
+                      });
+
+                      const rate = totalHoursScheduled > 0
+                        ? (totalHoursPresent / totalHoursScheduled) * 100
+                        : 0;
+
+                      const recordedCourses = Object.keys(courseGroups).length;
+                      const totalCourses = courses.length;
+
+                      return {
+                        value: Math.round(rate) + "%",
+                        subtitle: `${recordedCourses} of ${totalCourses} courses recorded`,
+                      };
+                    })()}
                   />
                 </div>
 
@@ -580,183 +572,186 @@ export default function StudentDashboard() {
           </div>
         );
 
-      case "grades":
+      case "grades": {
+        const enrolledIds = new Set(courses.map(e => e.course_id));
+        const currentGrades = grades.filter(g => enrolledIds.has(g.course_id));
+        const gradesByCourse = {};
+        currentGrades.forEach(g => {
+          if (!gradesByCourse[g.course_id]) gradesByCourse[g.course_id] = [];
+          gradesByCourse[g.course_id].push(g);
+        });
+        const courseEntries = courses.map(e => ({
+          courseId: e.course_id,
+          title: e.courses?.title || "—",
+          code: e.courses?.code || "—",
+          credits: e.courses?.credits || 0,
+          grades: gradesByCourse[e.course_id] || [],
+        }));
+        const gpa = currentGrades.length > 0
+          ? (currentGrades.reduce((s, g) => s + g.value, 0) / currentGrades.length).toFixed(2)
+          : null;
+        const detail = selectedGradeCourse ? courseEntries.find(c => c.courseId === selectedGradeCourse) : null;
+
         return (
           <div>
             <div className="mb-8">
-              <p className="text-amber-500 text-xs font-medium uppercase tracking-[0.2em] mb-1">
-                Academic
-              </p>
-              <h1 className="text-3xl font-semibold text-white tracking-tight">
-                Grades & GPA
-              </h1>
+              <p className="text-amber-500 text-xs font-medium uppercase tracking-[0.2em] mb-1">Academic</p>
+              <h1 className="text-3xl font-semibold text-white tracking-tight">Grades & GPA</h1>
             </div>
 
-            {gradesLoading ? (
-              <div className="flex items-center justify-center py-24 text-slate-500 text-sm">
-                Loading grades…
-              </div>
-            ) : grades.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-3 bg-slate-800 border border-slate-700 rounded-xl">
-                <div className="w-10 h-10 bg-slate-800 border border-slate-700 rounded-full flex items-center justify-center">
-                  <svg
-                    className="w-5 h-5 text-slate-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                </div>
-                <p className="text-slate-400 text-sm font-medium">
-                  No grades recorded yet
-                </p>
-              </div>
-            ) : (
-              <>
-                {/* GPA Overview */}
-                <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-8">
-                  <div className="flex items-center justify-between">
+            {gradesLoading || coursesLoading ? (
+              <div className="flex items-center justify-center py-24 text-slate-500 text-sm">Loading grades…</div>
+            ) : detail ? (
+              /* ── Course detail view ── */
+              <div>
+                <button
+                  onClick={() => setSelectedGradeCourse(null)}
+                  className="flex items-center gap-2 text-slate-400 hover:text-white text-sm mb-6 transition"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  Back to courses
+                </button>
+                <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden mb-6">
+                  <div className="px-6 py-5 border-b border-slate-700 flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold text-white mb-2">
-                        Overall GPA
-                      </h3>
-                      <p className="text-4xl font-bold text-amber-400">
-                        {(
-                          grades.reduce((sum, g) => sum + g.value, 0) /
-                          grades.length
-                        ).toFixed(2)}
-                      </p>
-                      <p className="text-sm text-slate-400 mt-1">
-                        Based on {grades.length} grade
-                        {grades.length !== 1 ? "s" : ""}
-                      </p>
+                      <p className="text-xs font-mono text-amber-400 mb-1">{detail.code}</p>
+                      <h2 className="text-lg font-semibold text-white">{detail.title}</h2>
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm text-slate-400 mb-2">
-                        Grade Distribution
+                    {detail.grades.length > 0 && (
+                      <div className="text-right">
+                        <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Course Avg</p>
+                        <p className={`text-2xl font-bold ${
+                          (detail.grades.reduce((s,g) => s+g.value,0)/detail.grades.length) >= 90 ? "text-emerald-400"
+                          : (detail.grades.reduce((s,g) => s+g.value,0)/detail.grades.length) >= 70 ? "text-amber-400"
+                          : "text-rose-400"
+                        }`}>
+                          {(detail.grades.reduce((s,g) => s+g.value,0)/detail.grades.length).toFixed(1)}%
+                        </p>
                       </div>
-                      <div className="space-y-1">
-                        {["A", "B", "C", "D", "F"].map((letter, i) => {
-                          const threshold = 90 - i * 20;
-                          const count = grades.filter(
-                            (g) =>
-                              g.value >= threshold - 10 &&
-                              g.value < threshold + 10,
-                          ).length;
-                          const percentage = (count / grades.length) * 100;
+                    )}
+                  </div>
+                  {detail.grades.length === 0 ? (
+                    <div className="px-6 py-12 text-center text-slate-500 text-sm">No grades recorded for this course yet.</div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-700">
+                          {["Type", "Grade", "Weight", "Weighted Points"].map(h => (
+                            <th key={h} className="text-left px-6 py-3 text-slate-500 font-medium text-xs uppercase tracking-widest">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detail.grades.map((g, i) => {
+                          const weighted = g.weight ? ((g.value * g.weight) / 100).toFixed(1) : "—";
                           return (
-                            <div
-                              key={letter}
-                              className="flex items-center gap-2 text-xs"
-                            >
-                              <span className="text-slate-400 w-4">
-                                {letter}:
-                              </span>
-                              <div className="w-16 bg-slate-700 rounded-full h-1.5">
-                                <div
-                                  className={`h-1.5 rounded-full ${
-                                    letter === "A"
-                                      ? "bg-emerald-500"
-                                      : letter === "B"
-                                        ? "bg-blue-500"
-                                        : letter === "C"
-                                          ? "bg-amber-500"
-                                          : letter === "D"
-                                            ? "bg-orange-500"
-                                            : "bg-red-500"
-                                  }`}
-                                  style={{ width: `${percentage}%` }}
-                                />
-                              </div>
-                              <span className="text-slate-500 w-8 text-right">
-                                {count}
-                              </span>
-                            </div>
+                            <tr key={g.id || i} className={`${i < detail.grades.length - 1 ? "border-b border-slate-700/60" : ""}`}>
+                              <td className="px-6 py-4">
+                                <span className="text-xs font-medium px-2 py-0.5 rounded capitalize bg-blue-300/15 text-blue-300 border border-blue-400/30">{g.grade_type || "—"}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`text-sm font-semibold ${g.value >= 90 ? "text-emerald-400" : g.value >= 70 ? "text-amber-400" : "text-rose-400"}`}>
+                                  {g.value}%
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-slate-400 text-sm">{g.weight != null ? `${g.weight}%` : "—"}</td>
+                              <td className="px-6 py-4 text-slate-300 text-sm font-medium">{weighted !== "—" ? `${weighted} pts` : "—"}</td>
+                            </tr>
                           );
                         })}
-                      </div>
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* ── Course list view ── */
+              <>
+                {/* GPA card */}
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-medium text-slate-400 uppercase tracking-widest mb-2">Current GPA</h3>
+                      {gpa ? (
+                        <>
+                          <p className="text-5xl font-bold text-amber-400">{gpa}</p>
+                          <p className="text-sm text-slate-500 mt-1">Based on {currentGrades.length} grade{currentGrades.length !== 1 ? "s" : ""} this semester</p>
+                        </>
+                      ) : (
+                        <p className="text-slate-500 text-sm mt-1">No grades recorded yet this semester</p>
+                      )}
                     </div>
+                    {gpa && (
+                      <div className="text-right">
+                        <div className="text-xs text-slate-500 uppercase tracking-widest mb-2">Distribution</div>
+                        <div className="space-y-1">
+                          {[["A", 90], ["B", 80], ["C", 70], ["D", 60], ["F", 0]].map(([letter, min], li) => {
+                            const max = li === 0 ? 101 : [90,80,70,60,101][li-1];
+                            const count = currentGrades.filter(g => g.value >= min && g.value < max).length;
+                            return (
+                              <div key={letter} className="flex items-center gap-2 text-xs">
+                                <span className="text-slate-400 w-4">{letter}:</span>
+                                <div className="w-20 bg-slate-700 rounded-full h-1.5">
+                                  <div className={`h-1.5 rounded-full ${letter==="A"?"bg-emerald-500":letter==="B"?"bg-blue-500":letter==="C"?"bg-amber-500":letter==="D"?"bg-orange-500":"bg-red-500"}`}
+                                    style={{ width: currentGrades.length > 0 ? `${(count/currentGrades.length)*100}%` : "0%" }} />
+                                </div>
+                                <span className="text-slate-500 w-4 text-right">{count}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Detailed Grades Table */}
+                {/* Course list */}
                 <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-                  <div className="px-6 py-4 border-b border-slate-800">
-                    <h2 className="text-sm font-semibold text-white">
-                      Grade Details
-                    </h2>
+                  <div className="px-6 py-4 border-b border-slate-700">
+                    <h2 className="text-sm font-semibold text-white">Current Courses</h2>
                   </div>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-800">
-                        {["Course", "Type", "Grade", "Weight", "Semester"].map(
-                          (h) => (
-                            <th
-                              key={h}
-                              className="text-left px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-widest"
-                            >
-                              {h}
-                            </th>
-                          ),
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {grades.map((grade, i) => (
-                        <tr
-                          key={grade.id || i}
-                          className={`hover:bg-slate-950/40 transition-colors ${i < grades.length - 1 ? "border-b border-slate-800/60" : ""}`}
-                        >
-                          <td className="px-4 py-3">
-                            <p className="text-white text-sm font-medium">
-                              {grade.courses?.title || "—"}
-                            </p>
-                            <p
-                              className="text-slate-500 text-xs"
-                              style={{ fontFamily: "'DM Mono', monospace" }}
-                            >
-                              {grade.courses?.code || "—"}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs font-medium px-2 py-0.5 rounded capitalize bg-blue-300/15 text-blue-300 border border-blue-400/30">
-                              {grade.grade_type || "—"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`text-sm font-semibold ${
-                                grade.value >= 90
-                                  ? "text-emerald-400"
-                                  : grade.value >= 70
-                                    ? "text-amber-400"
-                                    : "text-rose-400"
-                              }`}
-                            >
-                              {grade.value}%
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-slate-400 text-xs">
-                            {grade.weight || "—"}%
-                          </td>
-                          <td className="px-4 py-3 text-slate-400 text-xs">
-                            {grade.semester || "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {courseEntries.length === 0 ? (
+                    <div className="px-6 py-12 text-center text-slate-500 text-sm">No courses enrolled.</div>
+                  ) : (
+                    <div className="divide-y divide-slate-700/60">
+                      {courseEntries.map(c => {
+                        const avg = c.grades.length > 0
+                          ? c.grades.reduce((s,g) => s+g.value, 0) / c.grades.length
+                          : null;
+                        return (
+                          <button
+                            key={c.courseId}
+                            onClick={() => setSelectedGradeCourse(c.courseId)}
+                            className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-700/30 transition text-left"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">{c.code}</span>
+                              <div>
+                                <p className="text-white text-sm font-medium">{c.title}</p>
+                                <p className="text-slate-500 text-xs">{c.grades.length} grade{c.grades.length !== 1 ? "s" : ""} recorded · {c.credits} cr</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {avg !== null ? (
+                                <span className={`text-sm font-semibold ${avg >= 90 ? "text-emerald-400" : avg >= 70 ? "text-amber-400" : "text-rose-400"}`}>
+                                  {avg.toFixed(1)}%
+                                </span>
+                              ) : (
+                                <span className="text-slate-600 text-xs">No grades yet</span>
+                              )}
+                              <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </>
             )}
           </div>
         );
+      }
 
       case "attendance":
         return (
@@ -800,7 +795,7 @@ export default function StudentDashboard() {
                     const rate =
                       hoursScheduled > 0
                         ? (hoursPresent / hoursScheduled) * 100
-                        : 100;
+                        : 0;
 
                     // Determine if course is finalized (14 weeks completed)
                     const isFinalized = weeksRecorded >= 14;
@@ -1084,23 +1079,29 @@ export default function StudentDashboard() {
 
       case "transcript": {
         const txGrades = transcript?.grades || [];
-        const gradesByCourse = txGrades.reduce((acc, g) => {
-          if (!acc[g.course_id]) acc[g.course_id] = [];
-          acc[g.course_id].push(g);
-          return acc;
-        }, {});
-        // Use enrollments as source of truth — shows all courses even with no grades
-        const courseList = courses.map((enrollment) => ({
-          info: enrollment.courses,
-          assessments: gradesByCourse[enrollment.courses?.id] || [],
-        }));
-        const totalCredits = courseList.reduce(
-          (sum, c) => sum + (c.info?.credits || 0), 0
-        );
-        const overallAvg =
-          txGrades.length > 0
-            ? Math.round(txGrades.reduce((s, g) => s + (g.value || 0), 0) / txGrades.length)
-            : null;
+        const overallAvg = txGrades.length > 0
+          ? Math.round(txGrades.reduce((s, g) => s + (g.value || 0), 0) / txGrades.length)
+          : null;
+
+        // Group grades by semester → course
+        const bySemester = {};
+        txGrades.forEach(g => {
+          const sem = g.semester || "Unknown";
+          if (!bySemester[sem]) bySemester[sem] = {};
+          if (!bySemester[sem][g.course_id]) {
+            bySemester[sem][g.course_id] = { info: g.courses, grades: [] };
+          }
+          bySemester[sem][g.course_id].grades.push(g);
+        });
+
+        // Sort semesters newest first
+        const termOrder = { Spring: 2, Summer: 1, Fall: 3, Winter: 0 };
+        const sortedSemesters = Object.keys(bySemester).sort((a, b) => {
+          const [termA, yearA] = [a.split(" ")[0], parseInt(a.split(" ")[1]) || 0];
+          const [termB, yearB] = [b.split(" ")[0], parseInt(b.split(" ")[1]) || 0];
+          if (yearB !== yearA) return yearB - yearA;
+          return (termOrder[termB] ?? 0) - (termOrder[termA] ?? 0);
+        });
 
         return (
           <div>
@@ -1127,12 +1128,12 @@ export default function StudentDashboard() {
                     </div>
                     <div className="flex gap-6 text-right">
                       <div>
-                        <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Credits</p>
-                        <p className="text-2xl font-semibold text-white">{totalCredits}</p>
+                        <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Total Grades</p>
+                        <p className="text-2xl font-semibold text-white">{txGrades.length}</p>
                       </div>
                       {overallAvg !== null && (
                         <div>
-                          <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Avg Grade</p>
+                          <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Cumulative Avg</p>
                           <p className={`text-2xl font-semibold ${overallAvg >= 90 ? "text-emerald-400" : overallAvg >= 70 ? "text-blue-400" : overallAvg >= 50 ? "text-amber-400" : "text-rose-400"}`}>
                             {overallAvg}%
                           </p>
@@ -1142,52 +1143,66 @@ export default function StudentDashboard() {
                   </div>
                 </div>
 
-                {/* Course history */}
-                {courseList.length === 0 ? (
-                  <div className="bg-slate-800 border border-slate-700 rounded-xl px-6 py-8 text-center text-slate-500 text-sm">No course history</div>
-                ) : (
-                  <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-                    <div className="px-6 py-4 border-b border-slate-700">
-                      <h2 className="text-sm font-semibold text-white">Course History</h2>
-                    </div>
-                    <div className="divide-y divide-slate-700/60">
-                      {courseList.map((course, idx) => {
-                        const avg = course.assessments.length > 0
-                          ? Math.round(course.assessments.reduce((s, a) => s + (a.value || 0), 0) / course.assessments.length)
-                          : null;
-                        return (
-                          <div key={course.info?.id || idx} className="px-6 py-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
-                                  {course.info?.code || "—"}
-                                </span>
-                                <span className="text-sm font-semibold text-white">{course.info?.title || "Unknown Course"}</span>
-                              </div>
-                              <div className="flex items-center gap-4 text-xs text-slate-500">
-                                <span>{course.info?.credits || 0} credits</span>
-                                {avg !== null && (
-                                  <span className={`font-semibold text-sm ${avg >= 90 ? "text-emerald-400" : avg >= 70 ? "text-blue-400" : avg >= 50 ? "text-amber-400" : "text-rose-400"}`}>
-                                    {avg}%
+                {/* Semesters */}
+                {sortedSemesters.length === 0 ? (
+                  <div className="bg-slate-800 border border-slate-700 rounded-xl px-6 py-10 text-center text-slate-500 text-sm">No grade history yet</div>
+                ) : sortedSemesters.map(sem => {
+                  const coursesInSem = Object.values(bySemester[sem]);
+                  const semGrades = coursesInSem.flatMap(c => c.grades);
+                  const semAvg = semGrades.length > 0
+                    ? Math.round(semGrades.reduce((s, g) => s + (g.value || 0), 0) / semGrades.length)
+                    : null;
+                  return (
+                    <div key={sem} className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+                      {/* Semester header */}
+                      <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
+                        <h2 className="text-sm font-semibold text-white">{sem}</h2>
+                        {semAvg !== null && (
+                          <span className={`text-sm font-semibold ${semAvg >= 90 ? "text-emerald-400" : semAvg >= 70 ? "text-blue-400" : semAvg >= 50 ? "text-amber-400" : "text-rose-400"}`}>
+                            Avg {semAvg}%
+                          </span>
+                        )}
+                      </div>
+                      {/* Courses in semester */}
+                      <div className="divide-y divide-slate-700/60">
+                        {coursesInSem.map((course, idx) => {
+                          const courseAvg = course.grades.length > 0
+                            ? Math.round(course.grades.reduce((s, g) => s + (g.value || 0), 0) / course.grades.length)
+                            : null;
+                          return (
+                            <div key={course.info?.id || idx} className="px-6 py-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-xs font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
+                                    {course.info?.code || "—"}
                                   </span>
-                                )}
+                                  <span className="text-sm font-semibold text-white">{course.info?.title || "Unknown Course"}</span>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-slate-500">
+                                  {course.info?.credits && <span>{course.info.credits} cr</span>}
+                                  {courseAvg !== null && (
+                                    <span className={`font-semibold text-sm ${courseAvg >= 90 ? "text-emerald-400" : courseAvg >= 70 ? "text-blue-400" : courseAvg >= 50 ? "text-amber-400" : "text-rose-400"}`}>
+                                      {courseAvg}%
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {course.grades.map(g => (
+                                  <span key={g.id} className="text-xs flex items-center gap-1.5 bg-slate-700/50 border border-slate-600/40 px-2.5 py-1 rounded-lg">
+                                    <span className="text-slate-400 capitalize">{g.grade_type || "Assessment"}:</span>
+                                    <span className={`font-semibold ${g.value >= 90 ? "text-emerald-400" : g.value >= 70 ? "text-amber-400" : "text-rose-400"}`}>{g.value}%</span>
+                                    {g.weight != null && <span className="text-slate-600">· {g.weight}% wt</span>}
+                                  </span>
+                                ))}
                               </div>
                             </div>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {course.assessments.length === 0 ? (
-                                <span className="text-xs text-slate-600 italic">No grades recorded</span>
-                              ) : course.assessments.map((a) => (
-                                <span key={a.id} className="text-xs text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded">
-                                  {a.grade_type || "Assessment"}: <span className="text-white font-medium">{a.value ?? "—"}</span>
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1415,13 +1430,16 @@ export default function StudentDashboard() {
   );
 }
 
-function StatCard({ label, value, color }) {
+function StatCard({ label, value, color, subtitle }) {
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
       <p className={`text-4xl font-semibold ${color} mb-1`}>{value}</p>
       <p className="text-slate-500 text-sm uppercase tracking-[0.1em]">
         {label}
       </p>
+      {subtitle && (
+        <p className="text-slate-600 text-xs mt-1">{subtitle}</p>
+      )}
     </div>
   );
 }

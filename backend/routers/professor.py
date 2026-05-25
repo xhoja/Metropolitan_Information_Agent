@@ -78,6 +78,26 @@ def add_grade(data: GradeInput, authorization: str = Header(...)):
     }).execute()
     return res.data[0]
 
+class GradeUpdate(BaseModel):
+    value: float
+    semester: str
+    grade_type: str
+    weight: float
+
+@router.put("/grades/{grade_id}")
+def update_grade(grade_id: str, data: GradeUpdate, authorization: str = Header(...)):
+    token = authorization.replace("Bearer ", "")
+    get_professor_id(token)
+    res = supabase.table("grades").update({
+        "value": data.value,
+        "semester": data.semester,
+        "grade_type": data.grade_type,
+        "weight": data.weight,
+    }).eq("id", grade_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Grade not found.")
+    return res.data[0]
+
 @router.get("/grades/{course_id}")
 def get_grades(course_id: str, authorization: str = Header(...)):
     token = authorization.replace("Bearer ", "")
@@ -132,8 +152,10 @@ def get_attendance(course_id: str, authorization: str = Header(...)):
 def mark_attendance_bulk(data: AttendanceBulkInput, authorization: str = Header(...)):
     token = authorization.replace("Bearer ", "")
     get_professor_id(token)
+    existing = supabase.table("attendance").select("id").eq("course_id", data.course_id).eq("week_number", data.week_number).limit(1).execute()
+    if existing.data:
+        raise HTTPException(status_code=409, detail=f"Week {data.week_number} already recorded. Clear it first.")
     duration = _session_duration(data.session_start, data.session_end)
-    supabase.table("attendance").delete().eq("course_id", data.course_id).eq("week_number", data.week_number).execute()
     rows = []
     for r in data.records:
         hp = max(0.0, min(float(r.hours_present), duration))

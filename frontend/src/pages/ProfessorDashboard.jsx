@@ -62,6 +62,7 @@ export default function ProfessorDashboard() {
   const [gradeViewCourse, setGradeViewCourse] = useState('')
   const [grades, setGrades]               = useState([])
   const [gradesLoading, setGradesLoading] = useState(false)
+  const [editingGradeId, setEditingGradeId] = useState(null)
 
   // attendance tab
   const [attendWeek, setAttendWeek]               = useState(1)
@@ -196,20 +197,59 @@ export default function ProfessorDashboard() {
     setGradeSaving(true)
     setGradeError('')
     setGradeSuccess('')
+    const submittedCourseId = gradeForm.course_id
     try {
-      await api.post('/professor/grades', { ...gradeForm, value: Number(gradeForm.value) })
-      setGradeSuccess('Grade recorded.')
+      if (editingGradeId) {
+        await api.put(`/professor/grades/${editingGradeId}`, {
+          value: Number(gradeForm.value),
+          semester: gradeForm.semester,
+          grade_type: gradeForm.grade_type,
+          weight: Number(gradeForm.weight),
+        })
+        setGradeSuccess('Grade updated.')
+        setEditingGradeId(null)
+      } else {
+        await api.post('/professor/grades', { ...gradeForm, value: Number(gradeForm.value) })
+        setGradeSuccess('Grade recorded.')
+      }
       setGradeForm(EMPTY_GRADE)
       setGradeStudents([])
-      if (gradeViewCourse === gradeForm.course_id) {
-        const r = await api.get(`/professor/grades/${gradeForm.course_id}`)
+      const refreshCourse = gradeViewCourse || submittedCourseId
+      if (refreshCourse) {
+        const r = await api.get(`/professor/grades/${refreshCourse}`)
         setGrades(r.data)
       }
     } catch (err) {
-      setGradeError(err.response?.data?.detail || 'Failed to record grade.')
+      setGradeError(err.response?.data?.detail || 'Failed to save grade.')
     } finally {
       setGradeSaving(false)
     }
+  }
+
+  const handleEditGrade = (g) => {
+    setEditingGradeId(g.id)
+    setGradeForm({
+      student_id: g.student_id,
+      course_id: gradeViewCourse,
+      value: String(g.value),
+      semester: g.semester || '',
+      grade_type: g.grade_type || '',
+      weight: String(g.weight),
+    })
+    setGradeError('')
+    setGradeSuccess('')
+    if (gradeViewCourse) {
+      api.get(`/professor/courses/${gradeViewCourse}/students`).then(r => setGradeStudents(r.data)).catch(() => {})
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCancelEdit = () => {
+    setEditingGradeId(null)
+    setGradeForm(EMPTY_GRADE)
+    setGradeStudents([])
+    setGradeError('')
+    setGradeSuccess('')
   }
 
   const calcDuration = (start, end) => {
@@ -657,9 +697,17 @@ export default function ProfessorDashboard() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Record form */}
+              {/* Record / Edit form */}
               <div>
-                <h2 className="text-sm font-semibold text-white mb-4">Record Grade</h2>
+                <h2 className="text-sm font-semibold text-white mb-4">
+                  {editingGradeId ? 'Edit Grade' : 'Record Grade'}
+                </h2>
+                {editingGradeId && (
+                  <div className="mb-3 flex items-center gap-2 px-4 py-2.5 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+                    <span className="text-blue-300 text-sm flex-1">Editing existing grade — student and course are locked.</span>
+                    <button type="button" onClick={handleCancelEdit} className="text-xs text-slate-400 hover:text-white transition">Cancel</button>
+                  </div>
+                )}
                 <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
                   <form onSubmit={handleAddGrade} className="flex flex-col gap-4">
                     <Field label="Course">
@@ -673,6 +721,7 @@ export default function ProfessorDashboard() {
                           if (id) api.get(`/professor/courses/${id}/students`).then(r => setGradeStudents(r.data)).catch(() => {})
                         }}
                         className="input-base"
+                        disabled={!!editingGradeId}
                       >
                         <option value="">— select course —</option>
                         {courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
@@ -684,7 +733,7 @@ export default function ProfessorDashboard() {
                         value={gradeForm.student_id}
                         onChange={e => setGradeForm(f => ({ ...f, student_id: e.target.value }))}
                         className="input-base"
-                        disabled={!gradeForm.course_id}
+                        disabled={!gradeForm.course_id || !!editingGradeId}
                       >
                         <option value="">— select student —</option>
                         {gradeStudents.map(s => <option key={s.student_id} value={s.student_id}>{s.name} ({s.email})</option>)}
@@ -741,13 +790,24 @@ export default function ProfessorDashboard() {
                     </Field>
                     {gradeError   && <p className="text-rose-400 text-sm">{gradeError}</p>}
                     {gradeSuccess && <p className="text-emerald-400 text-sm">{gradeSuccess}</p>}
-                    <button
-                      type="submit"
-                      disabled={gradeSaving}
-                      className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition"
-                    >
-                      {gradeSaving ? 'Saving…' : 'Record Grade'}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={gradeSaving}
+                        className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition"
+                      >
+                        {gradeSaving ? 'Saving…' : editingGradeId ? 'Update Grade' : 'Record Grade'}
+                      </button>
+                      {editingGradeId && (
+                        <button
+                          type="button"
+                          onClick={handleCancelEdit}
+                          className="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium rounded-lg transition"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   </form>
                 </div>
               </div>
@@ -776,7 +836,7 @@ export default function ProfessorDashboard() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-slate-800">
-                          {['Student', 'Type', 'Grade', 'Weight', 'Semester'].map(h => (
+                          {['Student', 'Type', 'Grade', 'Weight', 'Semester', ''].map(h => (
                             <th key={h} className="text-left px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-widest">{h}</th>
                           ))}
                         </tr>
@@ -798,6 +858,14 @@ export default function ProfessorDashboard() {
                             </td>
                             <td className="px-4 py-3 text-slate-400 text-xs">{g.weight}%</td>
                             <td className="px-4 py-3 text-slate-400 text-xs">{g.semester}</td>
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => handleEditGrade(g)}
+                                className="text-xs text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-400/50 px-2.5 py-1 rounded-lg transition"
+                              >
+                                Edit
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -879,7 +947,7 @@ export default function ProfessorDashboard() {
 
               {weekAlreadyRecorded && attendCourse && (
                 <div className="mb-6 flex items-center justify-between gap-4 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-                  <p className="text-amber-300 text-sm">Week {attendWeek} already recorded. Save will overwrite it, or clear it first.</p>
+                  <p className="text-amber-300 text-sm">Week {attendWeek} already recorded. Clear it first to re-record.</p>
                   <button
                     onClick={() => handleClearWeek(attendWeek)}
                     className="text-xs font-medium text-rose-400 hover:text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-lg transition"
@@ -951,8 +1019,8 @@ export default function ProfessorDashboard() {
                               {attendSuccess && <p className="text-emerald-400 text-xs">{attendSuccess}</p>}
                               <button
                                 onClick={handleSubmitAttendance}
-                                disabled={attendSaving || sessionDuration <= 0}
-                                className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-medium px-5 py-2 rounded-lg transition"
+                                disabled={attendSaving || sessionDuration <= 0 || weekAlreadyRecorded}
+                                className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2 rounded-lg transition"
                               >
                                 {attendSaving ? 'Saving…' : 'Save Session'}
                               </button>
