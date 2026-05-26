@@ -42,6 +42,11 @@ export default function FinanceTab() {
   const [txSaving, setTxSaving]       = useState(false)
   const [txError, setTxError]         = useState('')
 
+  // scholarship form
+  const [schForm, setSchForm]         = useState({ amount: '', reason: '' })
+  const [schSaving, setSchSaving]     = useState(false)
+  const [schError, setSchError]       = useState('')
+
   const loadMajorFees = () => {
     setMfLoading(true)
     api.get('/admin/finance/major-fees')
@@ -187,6 +192,35 @@ export default function FinanceTab() {
     loadStudents()
   }
 
+  const handleApplyScholarship = async (e) => {
+    e.preventDefault()
+    setSchSaving(true); setSchError('')
+    try {
+      await api.post(`/admin/finance/student-fees/${detail.fee.id}/scholarship`, {
+        amount: Number(schForm.amount),
+        reason: schForm.reason || undefined,
+      })
+      setSchForm({ amount: '', reason: '' })
+      loadDetail(detail.fee.id)
+      loadStudents()
+    } catch (err) {
+      setSchError(err.response?.data?.detail || 'Failed to apply scholarship.')
+    } finally {
+      setSchSaving(false)
+    }
+  }
+
+  const handleRemoveScholarship = async () => {
+    if (!window.confirm('Remove scholarship? This restores the full fee and recalculates installments.')) return
+    try {
+      await api.delete(`/admin/finance/student-fees/${detail.fee.id}/scholarship`)
+      loadDetail(detail.fee.id)
+      loadStudents()
+    } catch {
+      alert('Failed to remove scholarship.')
+    }
+  }
+
   // ── Render student detail pane ─────────────────────────────────────────────
   if (selected) {
     const fee = detail?.fee
@@ -213,24 +247,82 @@ export default function FinanceTab() {
         </div>
 
         {/* Summary cards */}
-        {fee && (
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="bg-blue-600/20 border border-blue-500/30 rounded-xl p-5">
-              <p className="text-xs text-blue-300 uppercase tracking-widest mb-1">Agreed Amount</p>
-              <p className="text-3xl font-semibold text-white">{fmt(fee.agreed_amount)}</p>
-              <p className="text-xs text-blue-400 mt-1">{fee.academic_year}</p>
-            </div>
-            <div className="bg-emerald-600/20 border border-emerald-500/30 rounded-xl p-5">
-              <p className="text-xs text-emerald-300 uppercase tracking-widest mb-1">Paid Amount</p>
-              <p className="text-3xl font-semibold text-white">{fmt(fee.paid_amount)}</p>
-              <p className="text-xs text-emerald-400 mt-1">{fmt(fee.agreed_amount - fee.paid_amount)} remaining</p>
-            </div>
-            <div className={`rounded-xl p-5 border ${status === 'settled' ? 'bg-emerald-600/20 border-emerald-500/30' : status === 'partial' ? 'bg-amber-600/20 border-amber-500/30' : 'bg-rose-600/20 border-rose-500/30'}`}>
-              <p className={`text-xs uppercase tracking-widest mb-1 ${status === 'settled' ? 'text-emerald-300' : status === 'partial' ? 'text-amber-300' : 'text-rose-300'}`}>Status</p>
-              <p className="text-3xl font-semibold text-white capitalize">{status}</p>
-            </div>
-          </div>
-        )}
+        {fee && (() => {
+          const scholarship = Number(fee.scholarship_amount || 0)
+          const originalFee = Number(fee.agreed_amount) + scholarship
+          return (
+            <>
+              <div className="grid grid-cols-4 gap-4 mb-4">
+                <div className="bg-blue-600/20 border border-blue-500/30 rounded-xl p-5">
+                  <p className="text-xs text-blue-300 uppercase tracking-widest mb-1">Total Fee</p>
+                  <p className="text-2xl font-semibold text-white">{fmt(originalFee)}</p>
+                  <p className="text-xs text-blue-400 mt-1">{fee.academic_year}</p>
+                </div>
+                <div className={`rounded-xl p-5 border ${scholarship > 0 ? 'bg-violet-600/20 border-violet-500/30' : 'bg-slate-700/30 border-slate-700'}`}>
+                  <p className="text-xs text-violet-300 uppercase tracking-widest mb-1">Scholarship</p>
+                  <p className="text-2xl font-semibold text-white">{scholarship > 0 ? `− ${fmt(scholarship)}` : '—'}</p>
+                  {scholarship > 0 && fee.scholarship_reason && (
+                    <p className="text-xs text-violet-400 mt-1 truncate">{fee.scholarship_reason}</p>
+                  )}
+                </div>
+                <div className="bg-emerald-600/20 border border-emerald-500/30 rounded-xl p-5">
+                  <p className="text-xs text-emerald-300 uppercase tracking-widest mb-1">Paid</p>
+                  <p className="text-2xl font-semibold text-white">{fmt(fee.paid_amount)}</p>
+                  <p className="text-xs text-emerald-400 mt-1">{fmt(fee.agreed_amount - fee.paid_amount)} remaining</p>
+                </div>
+                <div className={`rounded-xl p-5 border ${status === 'settled' ? 'bg-emerald-600/20 border-emerald-500/30' : status === 'partial' ? 'bg-amber-600/20 border-amber-500/30' : 'bg-rose-600/20 border-rose-500/30'}`}>
+                  <p className={`text-xs uppercase tracking-widest mb-1 ${status === 'settled' ? 'text-emerald-300' : status === 'partial' ? 'text-amber-300' : 'text-rose-300'}`}>Status</p>
+                  <p className="text-2xl font-semibold text-white capitalize">{status}</p>
+                </div>
+              </div>
+
+              {/* Scholarship panel */}
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-semibold text-white">Scholarship</h2>
+                  {scholarship > 0 && (
+                    <button onClick={handleRemoveScholarship} className="text-xs text-rose-400 hover:text-rose-300 border border-rose-500/30 hover:border-rose-400/50 px-3 py-1.5 rounded-lg transition">
+                      Remove scholarship
+                    </button>
+                  )}
+                </div>
+                {scholarship > 0 ? (
+                  <div className="flex items-center gap-4 text-sm mb-4">
+                    <span className="text-slate-400">Current:</span>
+                    <span className="text-violet-300 font-semibold">− {fmt(scholarship)}</span>
+                    {fee.scholarship_reason && <span className="text-slate-500">"{fee.scholarship_reason}"</span>}
+                    <span className="text-slate-500">→ Net payable: <span className="text-white font-medium">{fmt(fee.agreed_amount)}</span></span>
+                  </div>
+                ) : null}
+                <form onSubmit={handleApplyScholarship} className="flex flex-wrap gap-3 items-end">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-500 text-xs">Amount</label>
+                    <input
+                      required type="number" min="1" step="0.01"
+                      value={schForm.amount}
+                      onChange={e => setSchForm(f => ({ ...f, amount: e.target.value }))}
+                      placeholder={scholarship > 0 ? `Current: ${fmt(scholarship)}` : 'e.g. 500.00'}
+                      className="fin-input w-40"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-slate-500 text-xs">Reason (optional)</label>
+                    <input
+                      value={schForm.reason}
+                      onChange={e => setSchForm(f => ({ ...f, reason: e.target.value }))}
+                      placeholder="Merit-based, financial aid…"
+                      className="fin-input"
+                    />
+                  </div>
+                  <button type="submit" disabled={schSaving} className="fin-btn-primary">
+                    {schSaving ? 'Applying…' : scholarship > 0 ? 'Update Scholarship' : 'Apply Scholarship'}
+                  </button>
+                </form>
+                {schError && <p className="text-rose-400 text-sm mt-2">{schError}</p>}
+              </div>
+            </>
+          )
+        })()}
 
         {/* Assign fee (if no fee yet) */}
         {!fee && (

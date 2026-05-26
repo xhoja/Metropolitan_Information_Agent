@@ -13,7 +13,17 @@ const TABS = [
 ]
 
 const EMPTY_ASSIGNMENT = { title: '', description: '', due_date: '', course_id: '', type: 'homework' }
-const EMPTY_GRADE = { student_id: '', course_id: '', value: '', semester: '', grade_type: '', weight: '' }
+const EMPTY_GRADE = { student_id: '', course_id: '', value: '', component_id: '' }
+const EMPTY_COMP = { name: '', weight: '' }
+
+const getCurrentSemester = () => {
+  const month = new Date().getMonth() + 1
+  const year = new Date().getFullYear()
+  if (month <= 5) return `Spring ${year}`
+  if (month <= 7) return `Summer ${year}`
+  return `Fall ${year}`
+}
+const CURRENT_SEMESTER = getCurrentSemester()
 const TODAY = new Date().toISOString().split('T')[0]
 
 const LECTURE_WEEKS = 14
@@ -63,6 +73,14 @@ export default function ProfessorDashboard() {
   const [grades, setGrades]               = useState([])
   const [gradesLoading, setGradesLoading] = useState(false)
   const [editingGradeId, setEditingGradeId] = useState(null)
+  const [gradeComponents, setGradeComponents] = useState([])
+  const [compCourse, setCompCourse]       = useState('')
+  const [compForm, setCompForm]           = useState(EMPTY_COMP)
+  const [compSaving, setCompSaving]       = useState(false)
+  const [compError, setCompError]         = useState('')
+  const [compSuccess, setCompSuccess]     = useState('')
+  const [filterStudent, setFilterStudent] = useState('')
+  const [filterComponent, setFilterComponent] = useState('')
 
   // attendance tab
   const [attendWeek, setAttendWeek]               = useState(1)
@@ -202,14 +220,17 @@ export default function ProfessorDashboard() {
       if (editingGradeId) {
         await api.put(`/professor/grades/${editingGradeId}`, {
           value: Number(gradeForm.value),
-          semester: gradeForm.semester,
-          grade_type: gradeForm.grade_type,
-          weight: Number(gradeForm.weight),
+          component_id: gradeForm.component_id,
         })
         setGradeSuccess('Grade updated.')
         setEditingGradeId(null)
       } else {
-        await api.post('/professor/grades', { ...gradeForm, value: Number(gradeForm.value) })
+        await api.post('/professor/grades', {
+          student_id: gradeForm.student_id,
+          course_id: gradeForm.course_id,
+          value: Number(gradeForm.value),
+          component_id: gradeForm.component_id,
+        })
         setGradeSuccess('Grade recorded.')
       }
       setGradeForm(EMPTY_GRADE)
@@ -226,15 +247,21 @@ export default function ProfessorDashboard() {
     }
   }
 
+  const fetchComponents = (courseId) => {
+    if (!courseId) { setGradeComponents([]); return }
+    api.get(`/professor/courses/${courseId}/components`)
+      .then(r => setGradeComponents(r.data))
+      .catch(() => setGradeComponents([]))
+  }
+
   const handleEditGrade = (g) => {
     setEditingGradeId(g.id)
+    const matchedComp = gradeComponents.find(c => c.name === g.grade_type)
     setGradeForm({
       student_id: g.student_id,
       course_id: gradeViewCourse,
       value: String(g.value),
-      semester: g.semester || '',
-      grade_type: g.grade_type || '',
-      weight: String(g.weight),
+      component_id: matchedComp ? matchedComp.id : '',
     })
     setGradeError('')
     setGradeSuccess('')
@@ -250,6 +277,48 @@ export default function ProfessorDashboard() {
     setGradeStudents([])
     setGradeError('')
     setGradeSuccess('')
+  }
+
+  const handleDeleteGrade = async (gradeId) => {
+    if (!window.confirm('Delete this grade? This cannot be undone.')) return
+    try {
+      await api.delete(`/professor/grades/${gradeId}`)
+      setGrades(g => g.filter(x => x.id !== gradeId))
+    } catch {
+      alert('Failed to delete grade.')
+    }
+  }
+
+  const handleAddComponent = async (e) => {
+    e.preventDefault()
+    setCompSaving(true)
+    setCompError('')
+    setCompSuccess('')
+    try {
+      await api.post(`/professor/courses/${compCourse}/components`, {
+        name: compForm.name,
+        weight: Number(compForm.weight),
+      })
+      setCompSuccess(`${compForm.name} added.`)
+      setCompForm(EMPTY_COMP)
+      const r = await api.get(`/professor/courses/${compCourse}/components`)
+      setGradeComponents(r.data)
+      if (gradeForm.course_id === compCourse) setGradeComponents(r.data)
+    } catch (err) {
+      setCompError(err.response?.data?.detail || 'Failed to add component.')
+    } finally {
+      setCompSaving(false)
+    }
+  }
+
+  const handleDeleteComponent = async (compId) => {
+    if (!window.confirm('Delete this component? Existing grades will keep their recorded type/weight.')) return
+    try {
+      await api.delete(`/professor/courses/${compCourse}/components/${compId}`)
+      setGradeComponents(c => c.filter(x => x.id !== compId))
+    } catch {
+      alert('Failed to delete component.')
+    }
   }
 
   const calcDuration = (start, end) => {
@@ -696,7 +765,109 @@ export default function ProfessorDashboard() {
               <h1 className="text-3xl font-semibold text-white tracking-tight">Grades</h1>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Grade Components Manager */}
+            <div className="mb-8">
+              <h2 className="text-sm font-semibold text-white mb-4">Grade Components</h2>
+              <p className="text-slate-400 text-xs mb-4">Define grade components per course first (e.g. Final Exam 60%, Project 30%, Attendance 10%). Grades can only be recorded against these components.</p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 flex flex-col gap-4">
+                  <Field label="Course">
+                    <select
+                      value={compCourse}
+                      onChange={e => {
+                        setCompCourse(e.target.value)
+                        fetchComponents(e.target.value)
+                        setCompError('')
+                        setCompSuccess('')
+                      }}
+                      className="input-base"
+                    >
+                      <option value="">— select course —</option>
+                      {courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
+                    </select>
+                  </Field>
+                  {compCourse && (
+                    <form onSubmit={handleAddComponent} className="flex flex-col gap-3">
+                      <input
+                        required
+                        value={compForm.name}
+                        onChange={e => setCompForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="Component name (e.g. Final Exam)"
+                        className="input-base w-full"
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          required
+                          type="number"
+                          min="1"
+                          max="100"
+                          step="0.1"
+                          value={compForm.weight}
+                          onChange={e => setCompForm(f => ({ ...f, weight: e.target.value }))}
+                          placeholder="Weight %"
+                          className="input-base w-32"
+                        />
+                        <button
+                          type="submit"
+                          disabled={compSaving}
+                          className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
+                        >
+                          {compSaving ? '…' : 'Add Component'}
+                        </button>
+                      </div>
+                      {compError   && <p className="text-rose-400 text-xs">{compError}</p>}
+                      {compSuccess && <p className="text-emerald-400 text-xs">{compSuccess}</p>}
+                    </form>
+                  )}
+                </div>
+                <div>
+                  {!compCourse ? (
+                    <div className="bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center py-10 text-slate-500 text-sm">Select a course to manage components.</div>
+                  ) : gradeComponents.length === 0 ? (
+                    <div className="bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center py-10 text-slate-500 text-sm">No components defined yet.</div>
+                  ) : (
+                    <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-800">
+                            {['Component', 'Weight', ''].map(h => (
+                              <th key={h} className="text-left px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-widest">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {gradeComponents.map((c, i) => (
+                            <tr key={c.id} className={`hover:bg-slate-950/40 transition-colors ${i < gradeComponents.length - 1 ? 'border-b border-slate-800/60' : ''}`}>
+                              <td className="px-4 py-3 text-white text-sm">{c.name}</td>
+                              <td className="px-4 py-3 text-slate-400 text-sm">{c.weight}%</td>
+                              <td className="px-4 py-3">
+                                <button
+                                  onClick={() => handleDeleteComponent(c.id)}
+                                  className="text-xs text-rose-400 hover:text-rose-300 border border-rose-500/30 hover:border-rose-400/50 px-2.5 py-1 rounded-lg transition"
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t border-slate-700">
+                            <td className="px-4 py-2 text-slate-500 text-xs">Total</td>
+                            <td className="px-4 py-2 text-slate-400 text-xs font-semibold">
+                              {gradeComponents.reduce((s, c) => s + c.weight, 0).toFixed(1)}%
+                            </td>
+                            <td />
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {/* Record / Edit form */}
               <div>
                 <h2 className="text-sm font-semibold text-white mb-4">
@@ -716,9 +887,14 @@ export default function ProfessorDashboard() {
                         value={gradeForm.course_id}
                         onChange={e => {
                           const id = e.target.value
-                          setGradeForm(f => ({ ...f, course_id: id, student_id: '' }))
+                          setGradeForm(f => ({ ...f, course_id: id, student_id: '', component_id: '' }))
                           setGradeStudents([])
-                          if (id) api.get(`/professor/courses/${id}/students`).then(r => setGradeStudents(r.data)).catch(() => {})
+                          if (id) {
+                            api.get(`/professor/courses/${id}/students`).then(r => setGradeStudents(r.data)).catch(() => {})
+                            fetchComponents(id)
+                          } else {
+                            setGradeComponents([])
+                          }
                         }}
                         className="input-base"
                         disabled={!!editingGradeId}
@@ -739,6 +915,24 @@ export default function ProfessorDashboard() {
                         {gradeStudents.map(s => <option key={s.student_id} value={s.student_id}>{s.name} ({s.email})</option>)}
                       </select>
                     </Field>
+                    <Field label="Component">
+                      {gradeComponents.length === 0 && gradeForm.course_id ? (
+                        <p className="text-amber-400 text-xs py-2">No components defined for this course. Add them above first.</p>
+                      ) : (
+                        <select
+                          required
+                          value={gradeForm.component_id}
+                          onChange={e => setGradeForm(f => ({ ...f, component_id: e.target.value }))}
+                          className="input-base"
+                          disabled={!gradeForm.course_id}
+                        >
+                          <option value="">— select component —</option>
+                          {gradeComponents.map(c => (
+                            <option key={c.id} value={c.id}>{c.name} ({c.weight}%)</option>
+                          ))}
+                        </select>
+                      )}
+                    </Field>
                     <Field label="Grade (0–100)">
                       <input
                         required
@@ -752,42 +946,7 @@ export default function ProfessorDashboard() {
                         className="input-base"
                       />
                     </Field>
-                    <Field label="Semester">
-                      <input
-                        required
-                        value={gradeForm.semester}
-                        onChange={e => setGradeForm(f => ({ ...f, semester: e.target.value }))}
-                        placeholder="e.g. Fall 2025"
-                        className="input-base"
-                      />
-                    </Field>
-                    <Field label="Grade Type">
-                      <select
-                        required
-                        value={gradeForm.grade_type}
-                        onChange={e => setGradeForm(f => ({ ...f, grade_type: e.target.value }))}
-                        className="input-base"
-                      >
-                        <option value="">— select type —</option>
-                        <option value="midterm">Midterm</option>
-                        <option value="final">Final</option>
-                        <option value="assignment">Assignment</option>
-                        <option value="quiz">Quiz</option>
-                      </select>
-                    </Field>
-                    <Field label="Weight (% of overall grade)">
-                      <input
-                        required
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={gradeForm.weight}
-                        onChange={e => setGradeForm(f => ({ ...f, weight: e.target.value }))}
-                        placeholder="e.g. 30"
-                        className="input-base"
-                      />
-                    </Field>
+                    <p className="text-slate-500 text-xs -mt-2">Semester is auto-determined from today's date.</p>
                     {gradeError   && <p className="text-rose-400 text-sm">{gradeError}</p>}
                     {gradeSuccess && <p className="text-emerald-400 text-sm">{gradeSuccess}</p>}
                     <div className="flex gap-2">
@@ -812,67 +971,129 @@ export default function ProfessorDashboard() {
                 </div>
               </div>
 
-              {/* Grades list */}
-              <div>
-                <h2 className="text-sm font-semibold text-white mb-4">View Grades</h2>
-                <div className="mb-4">
-                  <select
-                    value={gradeViewCourse}
-                    onChange={e => setGradeViewCourse(e.target.value)}
-                    className="input-base"
-                  >
-                    <option value="">— select course —</option>
-                    {courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
-                  </select>
-                </div>
-                {!gradeViewCourse ? (
-                  <div className="bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center py-16 text-slate-500 text-sm">Select a course to view grades.</div>
-                ) : gradesLoading ? (
-                  <div className="bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center py-16 text-slate-500 text-sm">Loading…</div>
-                ) : grades.length === 0 ? (
-                  <div className="bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center py-16 text-slate-500 text-sm">No grades recorded for this course.</div>
-                ) : (
-                  <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-slate-800">
-                          {['Student', 'Type', 'Grade', 'Weight', 'Semester', ''].map(h => (
-                            <th key={h} className="text-left px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-widest">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {grades.map((g, i) => (
-                          <tr key={g.id || i} className={`hover:bg-slate-950/40 transition-colors ${i < grades.length - 1 ? 'border-b border-slate-800/60' : ''}`}>
-                            <td className="px-4 py-3">
-                              <p className="text-white text-sm font-medium">{g.student_name || '—'}</p>
-                              <p className="text-slate-500 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>{g.student_email || '—'}</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="text-xs font-medium px-2 py-0.5 rounded capitalize bg-blue-300/15 text-blue-300 border border-blue-400/30">{g.grade_type}</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`text-sm font-semibold ${g.value >= 90 ? 'text-emerald-400' : g.value >= 70 ? 'text-amber-400' : 'text-rose-400'}`}>
-                                {g.value}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-slate-400 text-xs">{g.weight}%</td>
-                            <td className="px-4 py-3 text-slate-400 text-xs">{g.semester}</td>
-                            <td className="px-4 py-3">
-                              <button
-                                onClick={() => handleEditGrade(g)}
-                                className="text-xs text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-400/50 px-2.5 py-1 rounded-lg transition"
-                              >
-                                Edit
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+              {/* placeholder to keep grid balanced */}
+              <div />
+            </div>
+
+            {/* Grades list — full width */}
+            <div>
+              <div className="flex items-center gap-4 mb-4">
+                <h2 className="text-sm font-semibold text-white">View Grades</h2>
+                <select
+                  value={gradeViewCourse}
+                  onChange={e => {
+                    setGradeViewCourse(e.target.value)
+                    fetchComponents(e.target.value)
+                    setFilterStudent('')
+                    setFilterComponent('')
+                  }}
+                  className="input-base max-w-xs"
+                >
+                  <option value="">— select course —</option>
+                  {courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
+                </select>
               </div>
+              {!gradeViewCourse ? (
+                <div className="bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center py-16 text-slate-500 text-sm">Select a course to view grades.</div>
+              ) : gradesLoading ? (
+                <div className="bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center py-16 text-slate-500 text-sm">Loading…</div>
+              ) : grades.length === 0 ? (
+                <div className="bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center py-16 text-slate-500 text-sm">No grades recorded for this course.</div>
+              ) : (() => {
+                const uniqueStudents = [...new Map(grades.map(g => [g.student_id, g])).values()]
+                const uniqueComponents = [...new Set(grades.map(g => g.grade_type).filter(Boolean))]
+                const filtered = grades.filter(g =>
+                  (!filterStudent || g.student_id === filterStudent) &&
+                  (!filterComponent || g.grade_type === filterComponent)
+                )
+                return (
+                <div>
+                  <div className="flex gap-3 mb-3">
+                    <select
+                      value={filterStudent}
+                      onChange={e => setFilterStudent(e.target.value)}
+                      className="input-base flex-1"
+                    >
+                      <option value="">All students</option>
+                      {uniqueStudents.map(g => (
+                        <option key={g.student_id} value={g.student_id}>{g.student_name}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={filterComponent}
+                      onChange={e => setFilterComponent(e.target.value)}
+                      className="input-base flex-1"
+                    >
+                      <option value="">All components</option>
+                      {uniqueComponents.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                    {(filterStudent || filterComponent) && (
+                      <button
+                        onClick={() => { setFilterStudent(''); setFilterComponent('') }}
+                        className="text-xs text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 px-3 py-2 rounded-lg transition whitespace-nowrap"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-800">
+                        {['Student', 'Type', 'Grade', 'Weight', 'Semester', 'Actions'].map(h => (
+                          <th key={h} className="text-left px-4 py-3 text-slate-500 font-medium text-xs uppercase tracking-widest">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.length === 0 ? (
+                        <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500 text-sm">No grades match the filter.</td></tr>
+                      ) : filtered.map((g, i) => (
+                        <tr key={g.id || i} className={`hover:bg-slate-950/40 transition-colors ${i < grades.length - 1 ? 'border-b border-slate-800/60' : ''}`}>
+                          <td className="px-4 py-3">
+                            <p className="text-white text-sm font-medium">{g.student_name || '—'}</p>
+                            <p className="text-slate-500 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>{g.student_email || '—'}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs font-medium px-2 py-0.5 rounded capitalize bg-blue-300/15 text-blue-300 border border-blue-400/30">{g.grade_type}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-sm font-semibold ${g.value >= 90 ? 'text-emerald-400' : g.value >= 70 ? 'text-amber-400' : 'text-rose-400'}`}>
+                              {g.value}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-slate-400 text-sm">{g.weight}%</td>
+                          <td className="px-4 py-3 text-slate-400 text-sm">{g.semester}</td>
+                          <td className="px-4 py-3">
+                            {g.semester === CURRENT_SEMESTER ? (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleEditGrade(g)}
+                                  className="text-sm text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-400/50 px-3 py-1.5 rounded-lg transition"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteGrade(g.id)}
+                                  className="text-sm text-rose-400 hover:text-rose-300 border border-rose-500/30 hover:border-rose-400/50 px-3 py-1.5 rounded-lg transition"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-600 italic">Locked</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                </div>
+              )
+              })()}
             </div>
           </div>
         )}

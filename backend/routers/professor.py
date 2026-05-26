@@ -16,13 +16,25 @@ class CourseCreate(BaseModel):
     department: Optional[str] = None
     description: Optional[str] = None
 
+class GradeComponentCreate(BaseModel):
+    name: str
+    weight: float
+
 class GradeInput(BaseModel):
     student_id: str
     course_id: str
     value: float
-    semester: str
-    grade_type: str
-    weight: float
+    component_id: str
+
+def get_current_semester() -> str:
+    month = dt.utcnow().month
+    year = dt.utcnow().year
+    if month <= 5:
+        return f"Spring {year}"
+    elif month <= 7:
+        return f"Summer {year}"
+    else:
+        return f"Fall {year}"
 
 class AttendanceBulkItem(BaseModel):
     student_id: str
@@ -66,37 +78,92 @@ def get_courses(authorization: str = Header(...)):
     return res.data
 
 
+@router.get("/courses/{course_id}/components")
+def get_grade_components(course_id: str, authorization: str = Header(...)):
+    token = authorization.replace("Bearer ", "")
+    get_professor_id(token)
+    res = supabase.table("grade_components").select("*").eq("course_id", course_id).order("created_at").execute()
+    return res.data
+
+@router.post("/courses/{course_id}/components")
+def add_grade_component(course_id: str, data: GradeComponentCreate, authorization: str = Header(...)):
+    token = authorization.replace("Bearer ", "")
+    get_professor_id(token)
+    if data.weight <= 0 or data.weight > 100:
+        raise HTTPException(status_code=400, detail="Weight must be between 0 and 100.")
+    existing = supabase.table("grade_components").select("weight").eq("course_id", course_id).execute()
+    total = sum(c["weight"] for c in existing.data) + data.weight
+    if total > 100:
+        raise HTTPException(status_code=400, detail=f"Total weight would exceed 100% ({total:.1f}%).")
+    res = supabase.table("grade_components").insert({
+        "course_id": course_id,
+        "name": data.name,
+        "weight": data.weight,
+    }).execute()
+    return res.data[0]
+
+@router.delete("/courses/{course_id}/components/{component_id}")
+def delete_grade_component(course_id: str, component_id: str, authorization: str = Header(...)):
+    token = authorization.replace("Bearer ", "")
+    get_professor_id(token)
+    supabase.table("grade_components").delete().eq("id", component_id).eq("course_id", course_id).execute()
+    return {"ok": True}
+
 @router.post("/grades")
 def add_grade(data: GradeInput, authorization: str = Header(...)):
+    token = authorization.replace("Bearer ", "")
+    get_professor_id(token)
+    comp = supabase.table("grade_components").select("name, weight").eq("id", data.component_id).execute()
+    if not comp.data:
+        raise HTTPException(status_code=404, detail="Grade component not found.")
+    component = comp.data[0]
     res = supabase.table("grades").insert({
         "student_id": data.student_id,
         "course_id": data.course_id,
         "value": data.value,
-        "semester": data.semester,
-        "grade_type": data.grade_type,
-        "weight": data.weight
+        "semester": get_current_semester(),
+        "grade_type": component["name"],
+        "weight": component["weight"],
     }).execute()
     return res.data[0]
 
 class GradeUpdate(BaseModel):
     value: float
-    semester: str
-    grade_type: str
-    weight: float
+    component_id: str
 
 @router.put("/grades/{grade_id}")
 def update_grade(grade_id: str, data: GradeUpdate, authorization: str = Header(...)):
     token = authorization.replace("Bearer ", "")
     get_professor_id(token)
+    existing = supabase.table("grades").select("semester").eq("id", grade_id).execute()
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Grade not found.")
+    if existing.data[0]["semester"] != get_current_semester():
+        raise HTTPException(status_code=403, detail="Cannot edit grades from a past semester.")
+    comp = supabase.table("grade_components").select("name, weight").eq("id", data.component_id).execute()
+    if not comp.data:
+        raise HTTPException(status_code=404, detail="Grade component not found.")
+    component = comp.data[0]
     res = supabase.table("grades").update({
         "value": data.value,
-        "semester": data.semester,
-        "grade_type": data.grade_type,
-        "weight": data.weight,
+        "grade_type": component["name"],
+        "weight": component["weight"],
     }).eq("id", grade_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Grade not found.")
     return res.data[0]
+
+@router.delete("/grades/{grade_id}")
+def delete_grade(grade_id: str, authorization: str = Header(...)):
+    token = authorization.replace("Bearer ", "")
+    get_professor_id(token)
+    existing = supabase.table("grades").select("semester").eq("id", grade_id).execute()
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Grade not found.")
+    if existing.data[0]["semester"] != get_current_semester():
+        raise HTTPException(status_code=403, detail="Cannot delete grades from a past semester.")
+    supabase.table("grades").delete().eq("id", grade_id).execute()
+    return {"ok": True}
 
 @router.get("/grades/{course_id}")
 def get_grades(course_id: str, authorization: str = Header(...)):

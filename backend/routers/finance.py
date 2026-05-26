@@ -3,10 +3,16 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Header
 from db import supabase
 from routers.auth import decode_token
+from pydantic import BaseModel
+from typing import Optional
 from schemas.finance import (
     MajorFeeCreate, MajorFeeUpdate,
     StudentFeeCreate, InstallmentCreate, InstallmentUpdate, TransactionCreate,
 )
+
+class ScholarshipInput(BaseModel):
+    amount: float
+    reason: Optional[str] = None
 
 student_router = APIRouter()
 admin_router = APIRouter()
@@ -324,6 +330,60 @@ def delete_installment(installment_id: str, authorization: str = Header(...)):
     _require_admin(authorization.replace(BEARER_PREFIX, ""))
     supabase.table("installments").delete().eq("id", installment_id).execute()
     return {"message": "Deleted"}
+
+
+@admin_router.post("/student-fees/{student_fee_id}/scholarship")
+def apply_scholarship(student_fee_id: str, data: ScholarshipInput, authorization: str = Header(...)):
+    _require_admin(authorization.replace(BEARER_PREFIX, ""))
+    sf = supabase.table("student_fees").select("*").eq("id", student_fee_id).execute().data
+    if not sf:
+        raise HTTPException(status_code=404, detail="Fee record not found")
+    sf = sf[0]
+    original_fee = float(sf["agreed_amount"]) + float(sf.get("scholarship_amount") or 0)
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Scholarship must be greater than 0.")
+    if data.amount >= original_fee:
+        raise HTTPException(status_code=400, detail=f"Scholarship ({data.amount}) cannot equal or exceed total fee ({original_fee}).")
+    new_agreed = round(original_fee - data.amount, 2)
+    supabase.table("student_fees").update({
+        "scholarship_amount": data.amount,
+        "scholarship_reason": data.reason,
+        "agreed_amount": new_agreed,
+    }).eq("id", student_fee_id).execute()
+    # recalculate unpaid installments
+    paid_total = float(sf["paid_amount"])
+    installments = supabase.table("installments").select("*").eq("student_fee_id", student_fee_id).order("due_date").execute().data
+    unpaid = [i for i in installments if not i["paid"]]
+    if unpaid:
+        remaining = max(0.0, new_agreed - paid_total)
+        per = round(remaining / len(unpaid), 2)
+        for inst in unpaid:
+            supabase.table("installments").update({"amount": per}).eq("id", inst["id"]).execute()
+    return {"agreed_amount": new_agreed, "scholarship_amount": data.amount}
+
+
+@admin_router.delete("/student-fees/{student_fee_id}/scholarship")
+def remove_scholarship(student_fee_id: str, authorization: str = Header(...)):
+    _require_admin(authorization.replace(BEARER_PREFIX, ""))
+    sf = supabase.table("student_fees").select("*").eq("id", student_fee_id).execute().data
+    if not sf:
+        raise HTTPException(status_code=404, detail="Fee record not found")
+    sf = sf[0]
+    original_fee = round(float(sf["agreed_amount"]) + float(sf.get("scholarship_amount") or 0), 2)
+    paid_total = float(sf["paid_amount"])
+    supabase.table("student_fees").update({
+        "scholarship_amount": 0,
+        "scholarship_reason": None,
+        "agreed_amount": original_fee,
+    }).eq("id", student_fee_id).execute()
+    installments = supabase.table("installments").select("*").eq("student_fee_id", student_fee_id).order("due_date").execute().data
+    unpaid = [i for i in installments if not i["paid"]]
+    if unpaid:
+        remaining = max(0.0, original_fee - paid_total)
+        per = round(remaining / len(unpaid), 2)
+        for inst in unpaid:
+            supabase.table("installments").update({"amount": per}).eq("id", inst["id"]).execute()
+    return {"agreed_amount": original_fee, "scholarship_amount": 0}
 
 
 @admin_router.post("/student-fees/{student_fee_id}/transactions")

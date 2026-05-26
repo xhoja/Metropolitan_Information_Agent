@@ -30,6 +30,8 @@ export default function StudentDashboard() {
 
   const [attendance, setAttendance] = useState([]);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
+  const [attendStatusFilter, setAttendStatusFilter] = useState('');
+  const [attendSelectedCourse, setAttendSelectedCourse] = useState('');
 
   const [assignments, setAssignments] = useState([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
@@ -753,163 +755,133 @@ export default function StudentDashboard() {
         );
       }
 
-      case "attendance":
+      case "attendance": {
+        const courseGroups = attendance.reduce((acc, record) => {
+          const cid = record.course_id;
+          if (!acc[cid]) acc[cid] = {
+            courseTitle: record.courses?.title || "Unknown Course",
+            courseCode: record.courses?.code || "Unknown Code",
+            records: [],
+          };
+          acc[cid].records.push(record);
+          return acc;
+        }, {});
+        const courseEntries = Object.entries(courseGroups);
+        const activeCourseId = attendSelectedCourse || (courseEntries[0]?.[0] ?? '');
+        const activeCourse = courseGroups[activeCourseId];
+
+        const records = activeCourse?.records || [];
+        const hoursPresent = records.reduce((s, r) => s + r.hours_present, 0);
+        const weeksRecorded = new Set(records.map(r => r.week_number)).size;
+        const hoursScheduled = weeksRecorded * 4;
+        const rate = hoursScheduled > 0 ? (hoursPresent / hoursScheduled) * 100 : 0;
+        const isFinalized = weeksRecorded >= 14;
+        const sorted = [...records].sort((a, b) => b.week_number - a.week_number);
+        const filtered = attendStatusFilter ? sorted.filter(r => r.status === attendStatusFilter) : sorted;
+
+        const statusCounts = {
+          present: records.filter(r => r.status === 'present').length,
+          late: records.filter(r => r.status === 'late').length,
+          absent: records.filter(r => r.status === 'absent').length,
+        };
+
         return (
           <div>
-            <h2 className="text-2xl font-bold mb-6">Course Info</h2>
+            <div className="mb-6">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-[0.2em] mb-1">Attendance</p>
+              <h1 className="text-3xl font-semibold text-white tracking-tight">Course Attendance</h1>
+            </div>
             {attendanceLoading ? (
               <div className="text-slate-400">Loading attendance...</div>
             ) : attendance.length === 0 ? (
-              <div className="text-slate-400">No attendance records found</div>
+              <div className="text-slate-400">No attendance records found.</div>
             ) : (
-              <div className="space-y-8">
-                {(() => {
-                  // Group attendance records by course
-                  const courseGroups = attendance.reduce((acc, record) => {
-                    const courseId = record.course_id;
-                    if (!acc[courseId]) {
-                      acc[courseId] = {
-                        courseTitle:
-                          record.courses?.title || "Unknown Course Title",
-                        courseCode:
-                          record.courses?.code || "Unknown Course Code",
-                        records: [],
-                      };
-                    }
-                    acc[courseId].records.push(record);
-                    return acc;
-                  }, {});
+              <>
+                {/* Course selector tabs */}
+                <div className="flex gap-2 mb-6 flex-wrap">
+                  {courseEntries.map(([cid, c]) => (
+                    <button
+                      key={cid}
+                      onClick={() => { setAttendSelectedCourse(cid); setAttendStatusFilter('') }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition border ${
+                        cid === activeCourseId
+                          ? 'bg-blue-500/20 border-blue-500/50 text-blue-300'
+                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {c.courseCode}
+                    </button>
+                  ))}
+                </div>
 
-                  return Object.values(courseGroups).map((course, index) => {
-                    const records = course.records;
-
-                    // Calculate attendance metrics
-                    const hoursPresent = records.reduce(
-                      (sum, r) => sum + r.hours_present,
-                      0,
-                    );
-                    const weeksRecorded = new Set(
-                      records.map((r) => r.week_number),
-                    ).size;
-                    const hoursScheduled = weeksRecorded * 4;
-                    const rate =
-                      hoursScheduled > 0
-                        ? (hoursPresent / hoursScheduled) * 100
-                        : 0;
-
-                    // Determine if course is finalized (14 weeks completed)
-                    const isFinalized = weeksRecorded >= 14;
-
-                    // Sort records by week number (descending to show latest first)
-                    const sortedRecords = [...records].sort(
-                      (a, b) => b.week_number - a.week_number,
-                    );
-
-                    return (
-                      <div
-                        key={index}
-                        className="bg-slate-900 border border-slate-800 rounded-lg p-6"
-                      >
-                        {/* Course Header */}
-                        <div className="flex justify-between items-start mb-6">
-                          <div>
-                            <h3 className="text-xl font-bold text-white mb-1">
-                              {course.courseCode}
-                            </h3>
-                            <p className="text-lg text-slate-300 mb-2">
-                              {course.courseTitle}
-                            </p>
-                            <div className="flex gap-4 text-sm text-slate-400">
-                              <span>Attendance Th: {rate.toFixed(0)}%</span>
-                              <span>L: {rate.toFixed(0)}%</span>
-                            </div>
-                          </div>
-                          <CircularProgressBar
-                            percentage={rate}
-                            isFinalized={isFinalized}
-                          />
+                {activeCourse && (
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                    {/* Header */}
+                    <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <h3 className="text-xl font-bold text-white mb-1">{activeCourse.courseCode}</h3>
+                        <p className="text-slate-300 mb-3">{activeCourse.courseTitle}</p>
+                        <div className="flex gap-3">
+                          <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">{statusCounts.present} present</span>
+                          <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">{statusCounts.late} late</span>
+                          <span className="text-xs px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">{statusCounts.absent} absent</span>
                         </div>
+                      </div>
+                      <CircularProgressBar percentage={rate} isFinalized={isFinalized} />
+                    </div>
 
-                        {/* Attendance Records List */}
-                          <div className="space-y-3">
-                            {sortedRecords.map((record) => (
-                              <div
-                                key={record.id}
-                                className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700/50"
-                              >
-                                <div className="flex items-center gap-4">
-                                  {/* Week Number Circle */}
-                                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                                    {record.week_number}
-                                  </div>
+                    {/* Status filter */}
+                    <div className="flex gap-2 mb-4">
+                      {[['', 'All'], ['present', 'Present'], ['late', 'Late'], ['absent', 'Absent']].map(([val, label]) => (
+                        <button
+                          key={val}
+                          onClick={() => setAttendStatusFilter(val)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
+                            attendStatusFilter === val
+                              ? val === '' ? 'bg-slate-600 border-slate-500 text-white'
+                                : val === 'present' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                                : val === 'late' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                                : 'bg-rose-500/20 border-rose-500/50 text-rose-300'
+                              : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
 
-                                  {/* Session Info */}
-                                  <div>
-                                    <p className="text-white font-medium">
-                                      {record.status === "present"
-                                        ? "Present"
-                                        : "Absent"}{" "}
-                                      - Week {record.week_number}
-                                    </p>
-                                    <div className="flex items-center gap-3 mt-1">
-                                      <span className="text-sm text-slate-400">
-                                        {(() => {
-                                          const toMins = t => { const [h, m] = (t || '').split(':').map(Number); return h * 60 + (m || 0) }
-                                          const duration = (toMins(record.session_end) - toMins(record.session_start)) / 60
-                                          return `${record.hours_present}/${duration > 0 ? duration : '?'}h attended`
-                                        })()}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Date */}
-                                <div className="text-sm text-slate-400">
-                                  {new Date(record.date).toLocaleDateString()}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                        {/* Grade Info - only show if course is finalized */}
-                        {isFinalized && (
-                          <div className="mt-6 pt-6 border-t border-slate-700">
-                            <div className="grid grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <span className="text-slate-400">
-                                  Final Grade:
-                                </span>
-                                <span className="ml-2 text-white font-medium">
-                                  N/A
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-slate-400">Points:</span>
-                                <span className="ml-2 text-white">N/A</span>
-                              </div>
-                              <div>
-                                <span className="text-slate-400">
-                                  Class Average:
-                                </span>
-                                <span className="ml-2 text-white">N/A</span>
-                              </div>
-                              <div>
-                                <span className="text-slate-400">
-                                  Max Can Get:
-                                </span>
-                                <span className="ml-2 text-white">N/A</span>
-                              </div>
+                    {/* Records */}
+                    <div className="space-y-3">
+                      {filtered.length === 0 ? (
+                        <p className="text-slate-500 text-sm py-4 text-center">No {attendStatusFilter} records.</p>
+                      ) : filtered.map(record => (
+                        <div key={record.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${record.status === 'present' ? 'bg-emerald-600' : record.status === 'late' ? 'bg-amber-600' : 'bg-rose-600'}`}>
+                              {record.week_number}
+                            </div>
+                            <div>
+                              <p className="text-white font-medium capitalize">{record.status} — Week {record.week_number}</p>
+                              <span className="text-sm text-slate-400">
+                                {(() => {
+                                  const toMins = t => { const [h, m] = (t || '').split(':').map(Number); return h * 60 + (m || 0) }
+                                  const dur = (toMins(record.session_end) - toMins(record.session_start)) / 60
+                                  return `${record.hours_present}/${dur > 0 ? dur : '?'}h attended`
+                                })()}
+                              </span>
                             </div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
+                          <div className="text-sm text-slate-400">{new Date(record.date).toLocaleDateString()}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         );
+      }
 
       case "assignments":
         return (
@@ -1238,42 +1210,57 @@ export default function StudentDashboard() {
             ) : (
               <>
                 {/* Summary cards */}
-                <div className="grid grid-cols-3 gap-4 mb-8">
-                  <div className="bg-blue-600/20 border border-blue-500/30 rounded-xl p-5">
-                    <p className="text-xs text-blue-300 uppercase tracking-widest mb-1">Agreed Amount</p>
-                    <p className="text-3xl font-semibold text-white">{fmt(fee.agreed_amount)}</p>
-                    <p className="text-xs text-blue-400 mt-1">{fee.academic_year}</p>
-                  </div>
-                  <div className="bg-emerald-600/20 border border-emerald-500/30 rounded-xl p-5">
-                    <p className="text-xs text-emerald-300 uppercase tracking-widest mb-1">Paid Amount</p>
-                    <p className="text-3xl font-semibold text-white">{fmt(fee.paid_amount)}</p>
-                    <p className="text-xs text-emerald-400 mt-1">
-                      {fmt(Number(fee.agreed_amount) - Number(fee.paid_amount))} remaining
-                    </p>
-                  </div>
-                  <div
-                    className={`rounded-xl p-5 border ${
-                      status === "settled"
-                        ? "bg-emerald-600/20 border-emerald-500/30"
-                        : status === "partial"
-                          ? "bg-amber-600/20 border-amber-500/30"
-                          : "bg-rose-600/20 border-rose-500/30"
-                    }`}
-                  >
-                    <p
-                      className={`text-xs uppercase tracking-widest mb-1 ${
-                        status === "settled"
-                          ? "text-emerald-300"
-                          : status === "partial"
-                            ? "text-amber-300"
-                            : "text-rose-300"
-                      }`}
-                    >
-                      Status
-                    </p>
-                    <p className="text-3xl font-semibold text-white capitalize">{status}</p>
-                  </div>
-                </div>
+                {(() => {
+                  const scholarship = Number(fee.scholarship_amount || 0)
+                  const originalFee = Number(fee.agreed_amount) + scholarship
+                  return (
+                    <div className={`grid gap-4 mb-8 ${scholarship > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                      <div className="bg-blue-600/20 border border-blue-500/30 rounded-xl p-5">
+                        <p className="text-xs text-blue-300 uppercase tracking-widest mb-1">Total Fee</p>
+                        <p className="text-3xl font-semibold text-white">{fmt(originalFee)}</p>
+                        <p className="text-xs text-blue-400 mt-1">{fee.academic_year}</p>
+                      </div>
+                      {scholarship > 0 && (
+                        <div className="bg-violet-600/20 border border-violet-500/30 rounded-xl p-5">
+                          <p className="text-xs text-violet-300 uppercase tracking-widest mb-1">Scholarship</p>
+                          <p className="text-3xl font-semibold text-white">− {fmt(scholarship)}</p>
+                          {fee.scholarship_reason && (
+                            <p className="text-xs text-violet-400 mt-1 truncate">{fee.scholarship_reason}</p>
+                          )}
+                        </div>
+                      )}
+                      <div className="bg-emerald-600/20 border border-emerald-500/30 rounded-xl p-5">
+                        <p className="text-xs text-emerald-300 uppercase tracking-widest mb-1">Paid</p>
+                        <p className="text-3xl font-semibold text-white">{fmt(fee.paid_amount)}</p>
+                        <p className="text-xs text-emerald-400 mt-1">
+                          {fmt(Number(fee.agreed_amount) - Number(fee.paid_amount))} remaining
+                        </p>
+                      </div>
+                      <div
+                        className={`rounded-xl p-5 border ${
+                          status === "settled"
+                            ? "bg-emerald-600/20 border-emerald-500/30"
+                            : status === "partial"
+                              ? "bg-amber-600/20 border-amber-500/30"
+                              : "bg-rose-600/20 border-rose-500/30"
+                        }`}
+                      >
+                        <p
+                          className={`text-xs uppercase tracking-widest mb-1 ${
+                            status === "settled"
+                              ? "text-emerald-300"
+                              : status === "partial"
+                                ? "text-amber-300"
+                                : "text-rose-300"
+                          }`}
+                        >
+                          Status
+                        </p>
+                        <p className="text-3xl font-semibold text-white capitalize">{status}</p>
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Sub-tabs */}
                 <FinanceSubTabs
