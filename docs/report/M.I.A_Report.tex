@@ -247,15 +247,26 @@ Features deferred to Phase 2 for future implementation include scholarship manag
 
 \section{Use Case Diagrams}
 
-Detailed use case diagrams for each user role are available in the project documentation at \texttt{/docs/diagrams/}:
+\subsection{Student Portal Use Cases}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{use-case-student.png}
+\caption{Student use cases: view grades, submit assignments, access M.I.A chat}
+\end{figure}
 
-\begin{itemize}
-    \item \texttt{use-case-student.svg} - Student Portal Use Cases
-    \item \texttt{use-case-professor.svg} - Professor Dashboard Use Cases
-    \item \texttt{use-case-admin.svg} - Administrator Portal Use Cases
-\end{itemize}
+\subsection{Professor Dashboard Use Cases}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{use-case-professor.png}
+\caption{Professor use cases: manage courses, record grades, track attendance}
+\end{figure}
 
-These diagrams illustrate the primary use cases and workflows for each user role, showing how students access grades and chat with M.I.A, how professors manage courses and grades, and how administrators oversee institutional operations.
+\subsection{Administrator Portal Use Cases}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{use-case-admin.png}
+\caption{Administrator use cases: user management, system oversight, financial operations}
+\end{figure}
 
 % ============================================================================
 \chapter{Technical Implementation}
@@ -293,15 +304,26 @@ Context and memory enable personalization. Student preferences stored in the dat
 
 \section{Process Flow Diagrams}
 
-Detailed process flow diagrams (BPMN notation) are available in the project documentation at \texttt{/docs/diagrams/}:
+\subsection{M.I.A Conversational Flow}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{M.I.A-Chat-Flow-BPMN.png}
+\caption{M.I.A chat workflow: student query through LLM response and storage}
+\end{figure}
 
-\begin{itemize}
-    \item \texttt{M.I.A-Chat-Flow-BPMN.svg} - M.I.A Conversational Flow
-    \item \texttt{Login-Flow-BPMN.svg} - Authentication and Login Flow
-    \item \texttt{Assignment-Submission-BPMN.svg} - Assignment Submission and Grading
-\end{itemize}
+\subsection{Authentication and Login Flow}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{Login-Flow-BPMN.png}
+\caption{User login and role-based authentication and redirection}
+\end{figure}
 
-These diagrams show the detailed sequence of operations, decision points, and system interactions for critical workflows including user authentication, M.I.A chat interactions, and assignment submission processes.
+\subsection{Assignment Submission and Grading}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{Assignment-Submission-BPMN.png}
+\caption{Assignment creation, student submission, and professor grading workflow}
+\end{figure}
 
 % ============================================================================
 \chapter{Team and Organization}
