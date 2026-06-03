@@ -199,14 +199,14 @@ This research phase runs in parallel during **Week 1–2** of development and in
 **Goal:** Validate utility-first CSS approach for rapid, consistent styling across 3 portals.
 
 **Tasks:**
-- [ ] Create React component with Tailwind utilities
-- [ ] Build responsive layout (mobile, tablet, desktop breakpoints)
-- [ ] Use Tailwind's utility classes for: spacing, colors, typography, shadows
-- [ ] Test dark mode support (if needed)
-- [ ] Verify unused CSS is stripped in production build
-- [ ] Measure CSS file size (target: <20KB gzipped)
-- [ ] Compare development speed: Tailwind vs custom CSS vs Bootstrap
-- [ ] Test accessibility (color contrast, focus states)
+- [x] Create React component with Tailwind utilities
+- [x] Build responsive layout (mobile, tablet, desktop breakpoints)
+- [x] Use Tailwind's utility classes for: spacing, colors, typography, shadows
+- [x] Test dark mode support (if needed)
+- [x] Verify unused CSS is stripped in production build
+- [x] Measure CSS file size (target: <20KB gzipped)
+- [x] Compare development speed: Tailwind vs custom CSS vs Bootstrap
+- [x] Test accessibility (color contrast, focus states)
 
 **Key Questions:**
 - How much faster is development with utilities vs custom CSS?
