@@ -131,18 +131,31 @@ erDiagram
     STUDENTS ||--o{ STUDENT_PREFERENCES : "stores"
 ```
 
-# Use Cases — Actor Interactions
+# Use Cases — Actor-Specific Diagrams
 
-![Use Cases Diagram](use-cases.svg)
+## Administrator Use Cases
 
-## Use Case Summary
+![Administrator Use Cases](use-case-admin.svg)
 
-| Actor | Key Responsibilities |
-|-------|----------------------|
-| **Administrator** | Create/update users, assign roles, view system reports, manage tuition fees |
-| **Professor** | Upload courses, record grades, track attendance, manage assignments & materials, enroll students |
-| **Student** | View courses, check grades/GPA, view attendance & transcript, submit assignments, view finance, chat with M.I.A |
-| **M.I.A (AI)** | Answer academic questions, recommend courses, track graduation progress, remember preferences |
+**Responsibilities:** Create/update users, assign roles, view system reports, manage tuition fees, configure payment plans, track payments
+
+---
+
+## Professor Use Cases
+
+![Professor Use Cases](use-case-professor.svg)
+
+**Responsibilities:** Create courses, upload materials, manage assignments, record grades, track attendance, view class roster, enroll students
+
+---
+
+## Student Use Cases
+
+![Student Use Cases](use-case-student.svg)
+
+**Responsibilities:** View courses, check grades/GPA, view attendance, download transcript, submit assignments, view tuition balance, track payments, chat with M.I.A
+
+**M.I.A (AI Agent):** Answer academic questions, recommend courses, track graduation progress, remember preferences (exclusive to student portal)
 
 # Login Flow
 

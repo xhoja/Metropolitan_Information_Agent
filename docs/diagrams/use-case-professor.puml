@@ -1,0 +1,63 @@
+@startuml Professor Use Cases
+
+!define ACTOR_COLOR #4A7BA7
+!define SYSTEM_COLOR #E6F0FF
+!define USECASE_COLOR #D0E8F2
+
+skinparam actor {
+    BackgroundColor ACTOR_COLOR
+    BorderColor #003366
+    FontColor #FFF
+}
+
+skinparam rectangle {
+    BackgroundColor SYSTEM_COLOR
+    BorderColor #003366
+    FontColor #000
+}
+
+skinparam usecase {
+    BackgroundColor USECASE_COLOR
+    BorderColor #0066CC
+    FontColor #000
+}
+
+skinparam note {
+    BackgroundColor #F5F5F5
+    BorderColor #666666
+    FontColor #333333
+}
+
+actor "Professor" as PROF
+
+rectangle "M.I.A System" {
+    usecase "Create Course" as UC_CREATE_COURSE
+    usecase "Upload Course Materials" as UC_UPLOAD_MATERIALS
+    usecase "Manage Assignments" as UC_MANAGE_ASSIGN
+    usecase "Record Grades" as UC_RECORD_GRADES
+    usecase "Track Attendance" as UC_TRACK_ATTEND
+    usecase "View Class Roster" as UC_VIEW_ROSTER
+    usecase "Enroll Students" as UC_ENROLL_STUDENTS
+    usecase "View Student Submissions" as UC_VIEW_SUBMISSIONS
+}
+
+PROF --> UC_CREATE_COURSE
+PROF --> UC_UPLOAD_MATERIALS
+PROF --> UC_MANAGE_ASSIGN
+PROF --> UC_RECORD_GRADES
+PROF --> UC_TRACK_ATTEND
+PROF --> UC_VIEW_ROSTER
+PROF --> UC_ENROLL_STUDENTS
+PROF --> UC_VIEW_SUBMISSIONS
+
+UC_CREATE_COURSE ..|> UC_ENROLL_STUDENTS : requires
+UC_MANAGE_ASSIGN ..|> UC_VIEW_SUBMISSIONS : related
+UC_TRACK_ATTEND ..|> UC_VIEW_ROSTER : uses data
+
+note right of UC_UPLOAD_MATERIALS
+  Upload files to
+  Supabase Storage
+  Make available to students
+end note
+
+@enduml

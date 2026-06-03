@@ -1,0 +1,62 @@
+@startuml Administrator Use Cases
+
+!define ACTOR_COLOR #ADD8E6
+!define SYSTEM_COLOR #E6F0FF
+!define USECASE_COLOR #D0E8F2
+
+skinparam actor {
+    BackgroundColor ACTOR_COLOR
+    BorderColor #003366
+    FontColor #000
+}
+
+skinparam rectangle {
+    BackgroundColor SYSTEM_COLOR
+    BorderColor #003366
+    FontColor #000
+}
+
+skinparam usecase {
+    BackgroundColor USECASE_COLOR
+    BorderColor #0066CC
+    FontColor #000
+}
+
+skinparam note {
+    BackgroundColor #F5F5F5
+    BorderColor #666666
+    FontColor #333333
+}
+
+actor "Administrator" as ADMIN
+
+rectangle "M.I.A System" {
+    usecase "Create Users" as UC_CREATE_USERS
+    usecase "Update User Info" as UC_UPDATE_USERS
+    usecase "Delete Users" as UC_DELETE_USERS
+    usecase "Assign Roles" as UC_ASSIGN_ROLES
+    usecase "View System Reports" as UC_VIEW_REPORTS
+    usecase "Manage Tuition Fees" as UC_MANAGE_FEES
+    usecase "Configure Payment Plans" as UC_PAYMENT_PLANS
+    usecase "Track Payments" as UC_TRACK_PAYMENTS
+}
+
+ADMIN --> UC_CREATE_USERS
+ADMIN --> UC_UPDATE_USERS
+ADMIN --> UC_DELETE_USERS
+ADMIN --> UC_ASSIGN_ROLES
+ADMIN --> UC_VIEW_REPORTS
+ADMIN --> UC_MANAGE_FEES
+ADMIN --> UC_PAYMENT_PLANS
+ADMIN --> UC_TRACK_PAYMENTS
+
+UC_CREATE_USERS ..|> UC_ASSIGN_ROLES : requires
+UC_MANAGE_FEES ..|> UC_PAYMENT_PLANS : includes
+
+note right of UC_MANAGE_FEES
+  Beyond original scope
+  Set fees per major
+  Auto-assign to students
+end note
+
+@enduml

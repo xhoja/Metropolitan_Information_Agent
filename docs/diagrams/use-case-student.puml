@@ -1,0 +1,82 @@
+@startuml Student Use Cases
+
+!define ACTOR_COLOR #ADD8E6
+!define SYSTEM_COLOR #E6F0FF
+!define USECASE_COLOR #D0E8F2
+!define AI_COLOR #C8E6C9
+
+skinparam actor {
+    BackgroundColor ACTOR_COLOR
+    BorderColor #003366
+    FontColor #000
+}
+
+skinparam rectangle {
+    BackgroundColor SYSTEM_COLOR
+    BorderColor #003366
+    FontColor #000
+}
+
+skinparam usecase {
+    BackgroundColor USECASE_COLOR
+    BorderColor #0066CC
+    FontColor #000
+}
+
+skinparam note {
+    BackgroundColor #F5F5F5
+    BorderColor #666666
+    FontColor #333333
+}
+
+actor "Student" as STU
+
+rectangle "M.I.A System" {
+    usecase "View Enrolled Courses" as UC_VIEW_COURSES
+    usecase "Check Grades & GPA" as UC_CHECK_GRADES
+    usecase "View Attendance" as UC_VIEW_ATTEND
+    usecase "Download Transcript" as UC_TRANSCRIPT
+    usecase "Submit Assignments" as UC_SUBMIT_ASSIGN
+    usecase "View Tuition Balance" as UC_VIEW_TUITION
+    usecase "Track Payments" as UC_TRACK_PAYMENTS
+    usecase "Chat with M.I.A" as UC_CHAT_MIA
+}
+
+rectangle "M.I.A AI Agent" {
+    usecase "Answer Questions" as UC_ANSWER_Q
+    usecase "Recommend Courses" as UC_RECOMMEND
+    usecase "Track Graduation" as UC_TRACK_GRAD
+    usecase "Remember Preferences" as UC_MEMORY
+}
+
+STU --> UC_VIEW_COURSES
+STU --> UC_CHECK_GRADES
+STU --> UC_VIEW_ATTEND
+STU --> UC_TRANSCRIPT
+STU --> UC_SUBMIT_ASSIGN
+STU --> UC_VIEW_TUITION
+STU --> UC_TRACK_PAYMENTS
+STU --> UC_CHAT_MIA
+
+UC_CHAT_MIA --> UC_ANSWER_Q
+UC_CHAT_MIA --> UC_RECOMMEND
+UC_CHAT_MIA --> UC_TRACK_GRAD
+UC_CHAT_MIA --> UC_MEMORY
+
+UC_CHECK_GRADES ..|> UC_TRANSCRIPT : uses data
+UC_RECOMMEND ..|> UC_VIEW_COURSES : references
+UC_TRACK_GRAD ..|> UC_CHECK_GRADES : uses data
+
+note right of UC_CHAT_MIA
+  Exclusive to Student Portal
+  Powered by Groq/Gemini LLM
+  Maintains conversation history
+end note
+
+note right of UC_TRACK_PAYMENTS
+  View installment schedule
+  Payment status
+  Transaction history
+end note
+
+@enduml
