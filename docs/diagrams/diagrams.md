@@ -131,6 +131,19 @@ erDiagram
     STUDENTS ||--o{ STUDENT_PREFERENCES : "stores"
 ```
 
+# Use Cases — Actor Interactions
+
+![Use Cases Diagram](use-cases.svg)
+
+## Use Case Summary
+
+| Actor | Key Responsibilities |
+|-------|----------------------|
+| **Administrator** | Create/update users, assign roles, view system reports, manage tuition fees |
+| **Professor** | Upload courses, record grades, track attendance, manage assignments & materials, enroll students |
+| **Student** | View courses, check grades/GPA, view attendance & transcript, submit assignments, view finance, chat with M.I.A |
+| **M.I.A (AI)** | Answer academic questions, recommend courses, track graduation progress, remember preferences |
+
 # Login Flow
 
 ![Login Flow BPMN](Login-Flow-BPMN.svg)

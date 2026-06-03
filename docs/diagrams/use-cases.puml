@@ -1,0 +1,123 @@
+@startuml M.I.A Use Cases
+
+!define ACTOR_COLOR #E1F5FF
+!define SYSTEM_COLOR #FFF3E0
+!define EXTERNAL_COLOR #F3E5F5
+
+skinparam actor {
+    BackgroundColor ACTOR_COLOR
+    BorderColor #01579B
+    FontColor #000
+}
+
+skinparam rectangle {
+    BackgroundColor SYSTEM_COLOR
+    BorderColor #E65100
+    FontColor #000
+}
+
+skinparam usecase {
+    BackgroundColor #FFFDE7
+    BorderColor #F57F17
+    FontColor #000
+}
+
+actor "Administrator" as ADMIN
+actor "Professor" as PROF
+actor "Student" as STU
+actor "M.I.A\n(AI Agent)" as MIA
+
+rectangle "M.I.A System" {
+    ' Admin Use Cases
+    usecase "Create/Update Users" as UC_USER
+    usecase "Assign Roles" as UC_ROLES
+    usecase "View System Reports" as UC_REPORTS
+    usecase "Manage Tuition Fees" as UC_FINANCE
+
+    ' Professor Use Cases
+    usecase "Upload Courses" as UC_COURSES
+    usecase "Record Grades" as UC_GRADES
+    usecase "Track Attendance" as UC_ATTENDANCE
+    usecase "Create Assignments" as UC_ASSIGN
+    usecase "Manage Materials" as UC_MATERIALS
+    usecase "Enroll Students" as UC_ENROLL
+
+    ' Student Use Cases
+    usecase "View Courses" as UC_VIEW_COURSES
+    usecase "Check Grades/GPA" as UC_VIEW_GRADES
+    usecase "View Attendance" as UC_VIEW_ATTEND
+    usecase "Access Transcript" as UC_TRANSCRIPT
+    usecase "Submit Assignments" as UC_SUBMIT
+    usecase "View Tuition Balance" as UC_VIEW_FIN
+    usecase "Chat with M.I.A" as UC_CHAT
+
+    ' M.I.A Use Cases
+    usecase "Answer Questions" as UC_ANSWER
+    usecase "Recommend Courses" as UC_RECOMMEND
+    usecase "Track Progress" as UC_PROGRESS
+    usecase "Remember Preferences" as UC_MEMORY
+}
+
+rectangle "External Systems" {
+    usecase "Groq/Gemini API" as EXT_LLM
+    usecase "Supabase Storage" as EXT_STORAGE
+}
+
+' Admin Relations
+ADMIN --> UC_USER
+ADMIN --> UC_ROLES
+ADMIN --> UC_REPORTS
+ADMIN --> UC_FINANCE
+
+' Professor Relations
+PROF --> UC_COURSES
+PROF --> UC_GRADES
+PROF --> UC_ATTENDANCE
+PROF --> UC_ASSIGN
+PROF --> UC_MATERIALS
+PROF --> UC_ENROLL
+
+' Student Relations
+STU --> UC_VIEW_COURSES
+STU --> UC_VIEW_GRADES
+STU --> UC_VIEW_ATTEND
+STU --> UC_TRANSCRIPT
+STU --> UC_SUBMIT
+STU --> UC_VIEW_FIN
+STU --> UC_CHAT
+
+' M.I.A Relations
+MIA --> UC_ANSWER
+MIA --> UC_RECOMMEND
+MIA --> UC_PROGRESS
+MIA --> UC_MEMORY
+
+' M.I.A Dependencies
+UC_CHAT --> UC_ANSWER
+UC_CHAT --> UC_RECOMMEND
+UC_CHAT --> UC_PROGRESS
+UC_CHAT --> UC_MEMORY
+
+' System to External
+UC_CHAT -.-> EXT_LLM : uses
+UC_SUBMIT -.-> EXT_STORAGE : uses
+UC_MATERIALS -.-> EXT_STORAGE : uses
+
+' Data dependencies (include relations)
+UC_VIEW_GRADES ..|> UC_GRADES : requires data
+UC_VIEW_ATTEND ..|> UC_ATTENDANCE : requires data
+UC_VIEW_COURSES ..|> UC_COURSES : requires data
+UC_TRANSCRIPT ..|> UC_GRADES : requires data
+
+note right of MIA
+  Exclusive to Student Portal
+  Powered by LLM API
+  Maintains conversation history
+end note
+
+note bottom of UC_FINANCE
+  Beyond original scope
+  Auto-assign fees & installments
+end note
+
+@enduml
