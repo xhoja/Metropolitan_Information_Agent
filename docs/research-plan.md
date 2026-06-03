@@ -83,14 +83,14 @@ This research phase runs in parallel during **Week 1–2** of development and in
 **Goal:** Evaluate real-time inference capabilities and integration patterns for M.I.A chatbot.
 
 **Tasks:**
-- [ ] Create accounts and obtain API keys for Groq AND Gemini
-- [ ] Build "Hello World": send a simple prompt, receive response
-- [ ] Test streaming responses (important for chat UX)
-- [ ] Measure latency (target: <500ms for inference)
-- [ ] Calculate cost per request (1000 requests = ?)
-- [ ] Document authentication flow (API keys, rate limits)
-- [ ] Test error handling (invalid prompts, rate limit exceeded)
-- [ ] Compare: Groq latency vs Gemini accuracy
+- [x] Create accounts and obtain API keys for Groq AND Gemini
+- [x] Build "Hello World": send a simple prompt, receive response
+- [x] Test streaming responses (important for chat UX)
+- [x] Measure latency (target: <500ms for inference)
+- [x] Calculate cost per request (1000 requests = ?)
+- [x] Document authentication flow (API keys, rate limits)
+- [x] Test error handling (invalid prompts, rate limit exceeded)
+- [x] Compare: Groq latency vs Gemini accuracy
 
 **Key Questions:**
 - Which API returns responses faster?
@@ -112,14 +112,14 @@ This research phase runs in parallel during **Week 1–2** of development and in
 **Goal:** Validate FastAPI as backend architecture and understand API design patterns.
 
 **Tasks:**
-- [ ] Create FastAPI project with basic structure
-- [ ] Implement GET `/students` endpoint (returns JSON array)
-- [ ] Implement POST `/students` endpoint (validate input, return created object)
-- [ ] Add Pydantic model for request/response validation
-- [ ] Test error handling (missing required fields, invalid types)
-- [ ] Auto-generate OpenAPI documentation
-- [ ] Test async/await patterns (important for I/O-heavy operations)
-- [ ] Benchmark: measure response time for 100 concurrent requests
+- [x] Create FastAPI project with basic structure
+- [x] Implement GET `/students` endpoint (returns JSON array)
+- [x] Implement POST `/students` endpoint (validate input, return created object)
+- [x] Add Pydantic model for request/response validation
+- [x] Test error handling (missing required fields, invalid types)
+- [x] Auto-generate OpenAPI documentation
+- [x] Test async/await patterns (important for I/O-heavy operations)
+- [x] Benchmark: measure response time for 100 concurrent requests
 
 **Key Questions:**
 - How easy is it to add validation without boilerplate?
@@ -141,14 +141,14 @@ This research phase runs in parallel during **Week 1–2** of development and in
 **Goal:** Validate Supabase as managed PostgreSQL solution and understand connection/auth patterns.
 
 **Tasks:**
-- [ ] Create Supabase project and database
-- [ ] Create a simple table (e.g., students with id, name, email, gpa)
-- [ ] Insert 5 rows of test data
-- [ ] Query using Supabase JavaScript/Python client library
-- [ ] Test connection pooling (important for scalability)
-- [ ] Evaluate Supabase dashboard (backup, logs, monitoring)
-- [ ] Test Row Level Security (RLS) for student data isolation
-- [ ] Compare managed Supabase vs self-hosted PostgreSQL
+- [x] Create Supabase project and database
+- [x] Create a simple table (e.g., students with id, name, email, gpa)
+- [x] Insert 5 rows of test data
+- [x] Query using Supabase JavaScript/Python client library
+- [x] Test connection pooling (important for scalability)
+- [x] Evaluate Supabase dashboard (backup, logs, monitoring)
+- [x] Test Row Level Security (RLS) for student data isolation
+- [x] Compare managed Supabase vs self-hosted PostgreSQL
 
 **Key Questions:**
 - How easy is it to set up schemas and relationships?
@@ -170,14 +170,14 @@ This research phase runs in parallel during **Week 1–2** of development and in
 **Goal:** Validate React architecture and Vite build tooling for single-page application.
 
 **Tasks:**
-- [ ] Create Vite + React project from scratch
-- [ ] Build 2–3 reusable components (Header, Card, Button)
-- [ ] Implement state management (useState hook)
-- [ ] Fetch data from mock API and display in component
-- [ ] Test hot module reloading (code changes without page refresh)
-- [ ] Measure build time and bundle size
-- [ ] Test TypeScript type checking
-- [ ] Compare development vs production build performance
+- [x] Create Vite + React project from scratch
+- [x] Build 2–3 reusable components (Header, Card, Button)
+- [x] Implement state management (useState hook)
+- [x] Fetch data from mock API and display in component
+- [x] Test hot module reloading (code changes without page refresh)
+- [x] Measure build time and bundle size
+- [x] Test TypeScript type checking
+- [x] Compare development vs production build performance
 
 **Key Questions:**
 - How fast is the development feedback loop (edit → see change)?
