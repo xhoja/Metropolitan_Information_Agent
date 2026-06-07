@@ -4,6 +4,26 @@
 
 ---
 
+## Week 9 - 2026-06-07
+
+**What I worked on:**
+Completed the final frontend polish for the student dashboard before the project presentation. Reviewed the Grades & GPA, Transcript, Attendance, Assignments, Finance, and M.I.A Chat tabs to make sure the user flow was clear and consistent. Updated student-facing grade displays to support the final grading model, showing points, Albanian grade scale, and GPA values more clearly. Improved attendance warning states for students below the required threshold, checked responsive behavior across the dashboard, and helped verify that the final system documentation matched the implemented student portal.
+
+**What I learned:**
+Learned how important final integration testing is when several modules depend on shared academic rules. Improved my ability to review a complete frontend workflow from a student's perspective and make small UI changes that improve clarity before presentation.
+
+---
+
+## Week 8 - 2026-05-26
+
+**What I worked on:**
+Refined the student dashboard after the grading and finance updates. Adjusted the Grades & GPA and Transcript views so they worked with the new component-based grading structure and displayed course results more clearly. Redesigned the Attendance tab with course selector tabs, status filters, and color-coded week indicators to make attendance history easier to scan. Updated the Finance view to reflect scholarship-related changes and checked that student balances, installment information, and payment status remained understandable.
+
+**What I learned:**
+Gained more experience adapting frontend components when backend data structures change. Practiced presenting complex academic information in a simple student-friendly interface, especially for grades, attendance, and finance details.
+
+---
+
 ## Week 7 - 2026-05-25
 
 **What I worked on:**
