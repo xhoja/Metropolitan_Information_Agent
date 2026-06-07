@@ -211,23 +211,35 @@ def delete_enrollment(enrollment_id: str, authorization: str = Header(...)):
 def get_all_attendance(authorization: str = Header(...)):
     token = authorization.replace("Bearer ", "")
     require_admin(token)
-    records = supabase.table("attendance").select("id, date, status, students(user_id, users(name)), courses(title)").execute().data
+    records = supabase.table("attendance").select(
+        "id, student_id, course_id, date, status, week_number, hours_present, students(users(name, email)), courses(title, code)"
+    ).execute().data
     result = []
     for r in records:
         try:
             student_name = r["students"]["users"]["name"]
+            student_email = r["students"]["users"]["email"]
         except:
             student_name = ""
+            student_email = ""
         try:
             course_title = r["courses"]["title"]
+            course_code = r["courses"]["code"]
         except:
             course_title = ""
+            course_code = ""
         result.append({
             "id": r["id"],
+            "student_id": r.get("student_id", ""),
+            "course_id": r.get("course_id", ""),
             "student_name": student_name,
+            "student_email": student_email,
             "course_title": course_title,
+            "course_code": course_code,
             "date": r["date"],
-            "status": r["status"]
+            "status": r["status"],
+            "week_number": r.get("week_number"),
+            "hours_present": r.get("hours_present", 0),
         })
     return result
 

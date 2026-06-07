@@ -9,8 +9,13 @@ export const studentService = {
 
   getAssignments: () => api.get("/student/assignments"),
 
-  submitAssignment: (assignmentId, data) =>
-    api.post(`/student/assignments/${assignmentId}/submit`, data),
+  submitAssignment: (assignmentId, { files }) => {
+    const formData = new FormData();
+    if (files) files.forEach((f) => formData.append("files", f));
+    return api.post(`/student/assignments/${assignmentId}/submit`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 
   getTranscript: () => api.get("/student/transcript"),
   getCourseMaterials: (courseId) => api.get(`/student/courses/${courseId}/materials`),

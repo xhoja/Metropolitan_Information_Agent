@@ -2,6 +2,46 @@ import { useState, useEffect } from "react";
 import DashboardNav from "../components/DashboardNav";
 import { studentService, miaService } from "../api/studentService";
 
+// Convert 0-100 points to Albanian 4-10 scale
+// 95-100 → 10, then every 10 pts drops one grade, 45-54 → 5 (min pass), <45 → 4 (fail)
+function toAlbanian(value) {
+  if (value == null) return 0;
+  if (value >= 95) return 10;
+  if (value >= 85) return 9;
+  if (value >= 75) return 8;
+  if (value >= 65) return 7;
+  if (value >= 55) return 6;
+  if (value >= 45) return 5;
+  return 4; // fail
+}
+function albanianToGPA(points) {
+  const g = toAlbanian(points);
+  if (g >= 10) return 4.0;
+  if (g >= 9)  return 3.7;
+  if (g >= 8)  return 3.3;
+  if (g >= 7)  return 3.0;
+  if (g >= 6)  return 2.0;  // C
+  if (g >= 5)  return 1.0;  // D — minimum pass
+  return 0.0;               // F
+}
+function albColor(alb) {
+  if (alb >= 9) return "text-emerald-400";
+  if (alb >= 7) return "text-blue-400";
+  if (alb >= 5) return "text-amber-400";
+  return "text-rose-400";
+}
+function gradeColor(points) {
+  return albColor(toAlbanian(points));
+}
+// Normalize old semester strings (Summer→Spring, Fall→Autumn) for display
+function normalizeSemester(sem) {
+  if (!sem) return "Unknown";
+  const [term, year] = sem.split(" ");
+  if (term === "Fall")   return `Autumn ${year}`;
+  if (term === "Summer") return `Spring ${year}`;
+  return sem;
+}
+
 const tabs = [
   { id: "overview", label: "Overview" },
   { id: "courses", label: "My Courses" },
@@ -35,6 +75,10 @@ export default function StudentDashboard() {
 
   const [assignments, setAssignments] = useState([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
+  const [submissionPanel, setSubmissionPanel] = useState(null);
+  const [submissionFiles, setSubmissionFiles] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState("");
 
   const [transcript, setTranscript] = useState(null);
   const [transcriptLoading, setTranscriptLoading] = useState(true);
@@ -193,19 +237,46 @@ export default function StudentDashboard() {
       .finally(() => setChatLoading(false));
   };
 
-  const submitAssignment = (assignmentId, data) => {
+  const submitAssignment = (assignmentId) => {
+    if (submissionFiles.length === 0) return;
+    setSubmitting(true);
+    setSubmissionError("");
     studentService
-      .submitAssignment(assignmentId, data)
-      .then((res) => {
-        console.log("Assignment submitted:", res);
-        // Refresh assignments list
+      .submitAssignment(assignmentId, { files: submissionFiles })
+      .then(() => {
+        setSubmissionPanel(null);
+        setSubmissionFiles([]);
+        setSubmissionText("");
         setAssignmentsLoading(true);
         studentService
           .getAssignments()
           .then((res) => setAssignments(res.data))
           .finally(() => setAssignmentsLoading(false));
       })
-      .catch((err) => console.error("Submission error:", err));
+      .catch((err) => {
+        const msg = err.response?.data?.detail || "Submission failed. Please try again.";
+        setSubmissionError(msg);
+      })
+      .finally(() => setSubmitting(false));
+  };
+
+  const openSubmissionPanel = (assignmentId) => {
+    setSubmissionPanel(assignmentId);
+    setSubmissionFiles([]);
+  };
+
+  const closeSubmissionPanel = () => {
+    setSubmissionPanel(null);
+    setSubmissionFiles([]);
+    setSubmissionError("");
+  };
+
+  const addFiles = (fileList) => {
+    const incoming = Array.from(fileList);
+    setSubmissionFiles((prev) => {
+      const existing = new Set(prev.map((f) => f.name + f.size));
+      return [...prev, ...incoming.filter((f) => !existing.has(f.name + f.size))];
+    });
   };
 
   const renderTabContent = () => {
@@ -242,10 +313,7 @@ export default function StudentDashboard() {
                     label="Current GPA"
                     value={
                       grades.length > 0
-                        ? (
-                            grades.reduce((sum, g) => sum + g.value, 0) /
-                            grades.length
-                          ).toFixed(2)
+                        ? (grades.reduce((s, g) => s + albanianToGPA(g.value), 0) / grades.length).toFixed(2)
                         : "N/A"
                     }
                     color="text-blue-300"
@@ -475,9 +543,10 @@ export default function StudentDashboard() {
                       {courseGrades.map((g) => (
                         <div key={g.id} className="flex items-center justify-between">
                           <span className="text-sm text-slate-300">{g.grade_type || "Assessment"}</span>
-                          <span className={`text-sm font-semibold ${g.value >= 90 ? "text-emerald-400" : g.value >= 70 ? "text-blue-400" : g.value >= 50 ? "text-amber-400" : "text-rose-400"}`}>
-                            {g.value ?? "—"}
-                          </span>
+                          <div className="text-right">
+                            <span className={`text-sm font-semibold ${gradeColor(g.value)}`}>{toAlbanian(g.value).toFixed(1)}/10</span>
+                            <p className="text-xs text-slate-500">{albanianToGPA(g.value).toFixed(1)} GPA</p>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -590,7 +659,7 @@ export default function StudentDashboard() {
           grades: gradesByCourse[e.course_id] || [],
         }));
         const gpa = currentGrades.length > 0
-          ? (currentGrades.reduce((s, g) => s + g.value, 0) / currentGrades.length).toFixed(2)
+          ? (currentGrades.reduce((s, g) => s + albanianToGPA(g.value), 0) / currentGrades.length).toFixed(2)
           : null;
         const detail = selectedGradeCourse ? courseEntries.find(c => c.courseId === selectedGradeCourse) : null;
 
@@ -619,18 +688,17 @@ export default function StudentDashboard() {
                       <p className="text-xs font-mono text-amber-400 mb-1">{detail.code}</p>
                       <h2 className="text-lg font-semibold text-white">{detail.title}</h2>
                     </div>
-                    {detail.grades.length > 0 && (
-                      <div className="text-right">
-                        <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Course Avg</p>
-                        <p className={`text-2xl font-bold ${
-                          (detail.grades.reduce((s,g) => s+g.value,0)/detail.grades.length) >= 90 ? "text-emerald-400"
-                          : (detail.grades.reduce((s,g) => s+g.value,0)/detail.grades.length) >= 70 ? "text-amber-400"
-                          : "text-rose-400"
-                        }`}>
-                          {(detail.grades.reduce((s,g) => s+g.value,0)/detail.grades.length).toFixed(1)}%
-                        </p>
-                      </div>
-                    )}
+                    {detail.grades.length > 0 && (() => {
+                      const alb = detail.grades.reduce((s,g) => s+toAlbanian(g.value),0)/detail.grades.length;
+                      const gpaAvg = detail.grades.reduce((s,g) => s+albanianToGPA(g.value),0)/detail.grades.length;
+                      return (
+                        <div className="text-right">
+                          <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Course Avg</p>
+                          <p className={`text-2xl font-bold ${albColor(alb)}`}>{alb.toFixed(1)}/10</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{gpaAvg.toFixed(2)} GPA</p>
+                        </div>
+                      );
+                    })()}
                   </div>
                   {detail.grades.length === 0 ? (
                     <div className="px-6 py-12 text-center text-slate-500 text-sm">No grades recorded for this course yet.</div>
@@ -638,26 +706,32 @@ export default function StudentDashboard() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-slate-700">
-                          {["Type", "Grade", "Weight", "Weighted Points"].map(h => (
+                          {["Type", "Points", "Albanian Grade", "GPA", "Weight", "Weighted Grade"].map(h => (
                             <th key={h} className="text-left px-6 py-3 text-slate-500 font-medium text-xs uppercase tracking-widest">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {detail.grades.map((g, i) => {
-                          const weighted = g.weight ? ((g.value * g.weight) / 100).toFixed(1) : "—";
+                          const alb = toAlbanian(g.value);
+                          const gpaVal = albanianToGPA(g.value);
+                          const weighted = g.weight ? (alb * g.weight / 100).toFixed(2) : "—";
                           return (
                             <tr key={g.id || i} className={`${i < detail.grades.length - 1 ? "border-b border-slate-700/60" : ""}`}>
                               <td className="px-6 py-4">
                                 <span className="text-xs font-medium px-2 py-0.5 rounded capitalize bg-blue-300/15 text-blue-300 border border-blue-400/30">{g.grade_type || "—"}</span>
                               </td>
                               <td className="px-6 py-4">
-                                <span className={`text-sm font-semibold ${g.value >= 90 ? "text-emerald-400" : g.value >= 70 ? "text-amber-400" : "text-rose-400"}`}>
-                                  {g.value}%
-                                </span>
+                                <span className={`text-sm font-semibold ${gradeColor(g.value)}`}>{g.value ?? "—"}/100</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`text-sm font-semibold ${gradeColor(g.value)}`}>{alb}/10</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`text-sm font-semibold ${gradeColor(g.value)}`}>{gpaVal.toFixed(1)}</span>
                               </td>
                               <td className="px-6 py-4 text-slate-400 text-sm">{g.weight != null ? `${g.weight}%` : "—"}</td>
-                              <td className="px-6 py-4 text-slate-300 text-sm font-medium">{weighted !== "—" ? `${weighted} pts` : "—"}</td>
+                              <td className="px-6 py-4 text-emerald-400 text-sm font-medium">{weighted !== "—" ? weighted : "—"}</td>
                             </tr>
                           );
                         })}
@@ -677,7 +751,14 @@ export default function StudentDashboard() {
                       {gpa ? (
                         <>
                           <p className="text-5xl font-bold text-amber-400">{gpa}</p>
-                          <p className="text-sm text-slate-500 mt-1">Based on {currentGrades.length} grade{currentGrades.length !== 1 ? "s" : ""} this semester</p>
+                          <p className="text-xs text-slate-500 mt-0.5">0–4 scale · {currentGrades.length} grade{currentGrades.length !== 1 ? "s" : ""}</p>
+                          {currentGrades.length > 0 && (
+                            <p className="text-sm text-slate-400 mt-1">
+                              Albanian avg: <span className={`font-semibold ${albColor(currentGrades.reduce((s,g)=>s+toAlbanian(g.value),0)/currentGrades.length)}`}>
+                                {(currentGrades.reduce((s,g)=>s+toAlbanian(g.value),0)/currentGrades.length).toFixed(1)}/10
+                              </span>
+                            </p>
+                          )}
                         </>
                       ) : (
                         <p className="text-slate-500 text-sm mt-1">No grades recorded yet this semester</p>
@@ -687,14 +768,13 @@ export default function StudentDashboard() {
                       <div className="text-right">
                         <div className="text-xs text-slate-500 uppercase tracking-widest mb-2">Distribution</div>
                         <div className="space-y-1">
-                          {[["A", 90], ["B", 80], ["C", 70], ["D", 60], ["F", 0]].map(([letter, min], li) => {
-                            const max = li === 0 ? 101 : [90,80,70,60,101][li-1];
-                            const count = currentGrades.filter(g => g.value >= min && g.value < max).length;
+                          {[["10", 10, 11, "bg-emerald-500"], ["9", 9, 10, "bg-emerald-400"], ["8", 8, 9, "bg-blue-500"], ["7", 7, 8, "bg-blue-400"], ["6", 6, 7, "bg-amber-500"], ["5", 5, 6, "bg-amber-400"], ["≤4", 0, 5, "bg-red-500"]].map(([label, min, max, bar]) => {
+                            const count = currentGrades.filter(g => { const a = toAlbanian(g.value); return a >= min && a < max; }).length;
                             return (
-                              <div key={letter} className="flex items-center gap-2 text-xs">
-                                <span className="text-slate-400 w-4">{letter}:</span>
+                              <div key={label} className="flex items-center gap-2 text-xs">
+                                <span className="text-slate-400 w-5 text-right">{label}:</span>
                                 <div className="w-20 bg-slate-700 rounded-full h-1.5">
-                                  <div className={`h-1.5 rounded-full ${letter==="A"?"bg-emerald-500":letter==="B"?"bg-blue-500":letter==="C"?"bg-amber-500":letter==="D"?"bg-orange-500":"bg-red-500"}`}
+                                  <div className={`h-1.5 rounded-full ${bar}`}
                                     style={{ width: currentGrades.length > 0 ? `${(count/currentGrades.length)*100}%` : "0%" }} />
                                 </div>
                                 <span className="text-slate-500 w-4 text-right">{count}</span>
@@ -718,7 +798,10 @@ export default function StudentDashboard() {
                     <div className="divide-y divide-slate-700/60">
                       {courseEntries.map(c => {
                         const avg = c.grades.length > 0
-                          ? c.grades.reduce((s,g) => s+g.value, 0) / c.grades.length
+                          ? c.grades.reduce((s,g) => s+toAlbanian(g.value), 0) / c.grades.length
+                          : null;
+                        const avgGPA = c.grades.length > 0
+                          ? c.grades.reduce((s,g) => s+albanianToGPA(g.value), 0) / c.grades.length
                           : null;
                         return (
                           <button
@@ -735,9 +818,10 @@ export default function StudentDashboard() {
                             </div>
                             <div className="flex items-center gap-3">
                               {avg !== null ? (
-                                <span className={`text-sm font-semibold ${avg >= 90 ? "text-emerald-400" : avg >= 70 ? "text-amber-400" : "text-rose-400"}`}>
-                                  {avg.toFixed(1)}%
-                                </span>
+                                <div className="text-right">
+                                  <span className={`text-sm font-semibold ${albColor(avg)}`}>{avg.toFixed(1)}/10</span>
+                                  <p className="text-xs text-slate-500">{avgGPA.toFixed(2)} GPA</p>
+                                </div>
                               ) : (
                                 <span className="text-slate-600 text-xs">No grades yet</span>
                               )}
@@ -799,23 +883,42 @@ export default function StudentDashboard() {
               <>
                 {/* Course selector tabs */}
                 <div className="flex gap-2 mb-6 flex-wrap">
-                  {courseEntries.map(([cid, c]) => (
-                    <button
-                      key={cid}
-                      onClick={() => { setAttendSelectedCourse(cid); setAttendStatusFilter('') }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition border ${
-                        cid === activeCourseId
-                          ? 'bg-blue-500/20 border-blue-500/50 text-blue-300'
-                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {c.courseCode}
-                    </button>
-                  ))}
+                  {courseEntries.map(([cid, c]) => {
+                    const cRecords = c.records;
+                    const cHoursPresent = cRecords.reduce((s, r) => s + r.hours_present, 0);
+                    const cWeeks = new Set(cRecords.map(r => r.week_number)).size;
+                    const cRate = cWeeks > 0 ? (cHoursPresent / (cWeeks * 4)) * 100 : 0;
+                    const cFailed = cRate < 75 && cWeeks > 0;
+                    return (
+                      <button
+                        key={cid}
+                        onClick={() => { setAttendSelectedCourse(cid); setAttendStatusFilter('') }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition border ${
+                          cid === activeCourseId
+                            ? cFailed ? 'bg-rose-500/20 border-rose-500/50 text-rose-300'
+                              : 'bg-blue-500/20 border-blue-500/50 text-blue-300'
+                            : cFailed ? 'bg-slate-800 border-rose-700/50 text-rose-400 hover:text-rose-300'
+                              : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {c.courseCode}{cFailed && ' ⚠'}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {activeCourse && (
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                  <div className={`bg-slate-900 border rounded-xl p-6 ${rate < 75 ? 'border-rose-700/50' : 'border-slate-800'}`}>
+                    {/* Attendance failure warning */}
+                    {rate < 75 && hoursScheduled > 0 && (
+                      <div className="mb-5 px-4 py-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-start gap-3">
+                        <svg className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                        <div>
+                          <p className="text-rose-300 font-semibold text-sm">Failed due to attendance</p>
+                          <p className="text-rose-400/80 text-xs mt-0.5">Attendance is {rate.toFixed(1)}% — below the required 75%. You must retake this course.</p>
+                        </div>
+                      </div>
+                    )}
                     {/* Header */}
                     <div className="flex justify-between items-start mb-6">
                       <div>
@@ -883,7 +986,14 @@ export default function StudentDashboard() {
         );
       }
 
-      case "assignments":
+      case "assignments": {
+        const groupedAssignments = assignments.reduce((acc, a) => {
+          const key = a.course_name || "Unknown Course";
+          if (!acc[key]) acc[key] = { code: a.course_code || "", items: [] };
+          acc[key].items.push(a);
+          return acc;
+        }, {});
+
         return (
           <div>
             <h2 className="text-2xl font-bold mb-6">Assignments</h2>
@@ -892,50 +1002,116 @@ export default function StudentDashboard() {
             ) : assignments.length === 0 ? (
               <div className="text-slate-400">No assignments found</div>
             ) : (
-              <div className="grid gap-4">
-                {assignments.map((assignment) => (
-                  <div
-                    key={assignment.id}
-                    className="bg-slate-900 border border-slate-800 rounded-lg p-6"
-                  >
-                    <h3 className="text-lg font-semibold text-white mb-2">
-                      {assignment.title}
-                    </h3>
-                    <p className="text-slate-400 mb-4">
-                      {assignment.description}
-                    </p>
-                    <p className="text-slate-400 mb-4">
-                      Due: {new Date(assignment.due_date).toLocaleDateString()}
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          const content = prompt("Enter assignment content:");
-                          if (content) {
-                            submitAssignment(assignment.id, { content });
-                          }
-                        }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded transition text-sm"
-                      >
-                        Submit Text
-                      </button>
-                      <button
-                        onClick={() => {
-                          const input = document.createElement("input");
-                          input.type = "file";
-                          input.accept = ".pdf,.doc,.docx,.txt,.zip";
-                          input.onchange = (e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              submitAssignment(assignment.id, { file });
-                            }
-                          };
-                          input.click();
-                        }}
-                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded transition text-sm"
-                      >
-                        Upload File
-                      </button>
+              <div className="flex flex-col gap-8">
+                {Object.entries(groupedAssignments).map(([courseName, { code, items }]) => (
+                  <div key={courseName}>
+                    <div className="flex items-baseline gap-3 mb-4">
+                      <h3 className="text-lg font-semibold text-white">{courseName}</h3>
+                      {code && <span className="text-xs text-slate-500 uppercase tracking-widest">{code}</span>}
+                    </div>
+                    <div className="grid gap-4">
+                      {items.map((assignment) => (
+                        <div
+                          key={assignment.id}
+                          className="bg-slate-900 border border-slate-800 rounded-lg p-6"
+                        >
+                          <div className="flex items-start justify-between gap-4 mb-2">
+                            <h4 className="text-base font-semibold text-white">{assignment.title}</h4>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {(assignment.submission?.grade != null || assignment.recorded_grade != null) ? (
+                                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                  Graded: {assignment.submission?.grade ?? assignment.recorded_grade}/10
+                                </span>
+                              ) : assignment.submission ? (
+                                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/30">Submitted</span>
+                              ) : assignment.is_past_due ? (
+                                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">Missed</span>
+                              ) : null}
+                              {assignment.is_past_due && !assignment.submission && (
+                                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">Past Due</span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-slate-400 mb-3">{assignment.description}</p>
+                          <div className="flex items-center gap-3 mb-4">
+                            <p className={`text-sm ${assignment.is_past_due ? "text-red-400" : "text-slate-500"}`}>
+                              Due: {new Date(assignment.due_date).toLocaleDateString()}
+                            </p>
+                            {assignment.component_name && (
+                              <span className="text-xs text-slate-500 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded">
+                                {assignment.component_name} · {assignment.component_weight}% of grade
+                              </span>
+                            )}
+                          </div>
+
+                          {assignment.submission ? (
+                            <div className="text-xs text-slate-500">
+                              Submitted {assignment.submission.submitted_at ? new Date(assignment.submission.submitted_at).toLocaleString() : ""}
+                            </div>
+                          ) : assignment.is_past_due ? (
+                            <p className="text-xs text-red-400/70">Submission window closed. Grade recorded as 0.</p>
+                          ) : submissionPanel === assignment.id ? (
+                            <div className="border border-slate-700 rounded-lg p-4 bg-slate-950/60">
+                              <p className="text-sm font-medium text-slate-300 mb-3">Submit Assignment</p>
+
+                              <label className="flex flex-col items-center justify-center border border-dashed border-slate-600 rounded-lg p-4 cursor-pointer hover:border-slate-400 transition mb-3">
+                                <span className="text-slate-400 text-sm mb-1">Click to add files or drag and drop</span>
+                                <span className="text-slate-600 text-xs">.pdf, .doc, .docx, .txt, .zip — multiple allowed</span>
+                                <input
+                                  type="file"
+                                  multiple
+                                  accept=".pdf,.doc,.docx,.txt,.zip,.png,.jpg,.jpeg"
+                                  className="hidden"
+                                  onChange={(e) => addFiles(e.target.files)}
+                                />
+                              </label>
+
+                              {submissionFiles.length > 0 && (
+                                <ul className="mb-3 flex flex-col gap-1">
+                                  {submissionFiles.map((f, i) => (
+                                    <li key={i} className="flex items-center justify-between text-sm text-slate-300 bg-slate-800 rounded px-3 py-1.5">
+                                      <span className="truncate max-w-xs">{f.name}</span>
+                                      <button
+                                        onClick={() => setSubmissionFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                                        className="text-slate-500 hover:text-red-400 ml-3 shrink-0 transition"
+                                      >
+                                        ✕
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+
+                              {submissionError && (
+                                <p className="text-xs text-red-400 mb-3">{submissionError}</p>
+                              )}
+
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => submitAssignment(assignment.id)}
+                                  disabled={submitting || submissionFiles.length === 0}
+                                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition text-sm"
+                                >
+                                  {submitting ? "Submitting…" : "Submit"}
+                                </button>
+                                <button
+                                  onClick={closeSubmissionPanel}
+                                  className="text-slate-400 hover:text-white px-4 py-2 rounded transition text-sm"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => openSubmissionPanel(assignment.id)}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition text-sm"
+                            >
+                              Submit Assignment
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -943,6 +1119,7 @@ export default function StudentDashboard() {
             )}
           </div>
         );
+      }
 
       case "materials":
         if (selectedMaterialsCourse) {
@@ -1051,14 +1228,17 @@ export default function StudentDashboard() {
 
       case "transcript": {
         const txGrades = transcript?.grades || [];
-        const overallAvg = txGrades.length > 0
-          ? Math.round(txGrades.reduce((s, g) => s + (g.value || 0), 0) / txGrades.length)
+        const overallAlb = txGrades.length > 0
+          ? txGrades.reduce((s, g) => s + toAlbanian(g.value || 0), 0) / txGrades.length
+          : null;
+        const overallGPA = txGrades.length > 0
+          ? (txGrades.reduce((s, g) => s + albanianToGPA(g.value || 0), 0) / txGrades.length).toFixed(2)
           : null;
 
         // Group grades by semester → course
         const bySemester = {};
         txGrades.forEach(g => {
-          const sem = g.semester || "Unknown";
+          const sem = normalizeSemester(g.semester);
           if (!bySemester[sem]) bySemester[sem] = {};
           if (!bySemester[sem][g.course_id]) {
             bySemester[sem][g.course_id] = { info: g.courses, grades: [] };
@@ -1066,8 +1246,8 @@ export default function StudentDashboard() {
           bySemester[sem][g.course_id].grades.push(g);
         });
 
-        // Sort semesters newest first
-        const termOrder = { Spring: 2, Summer: 1, Fall: 3, Winter: 0 };
+        // Sort semesters newest first (Autumn > Spring within same year)
+        const termOrder = { Autumn: 2, Spring: 1 };
         const sortedSemesters = Object.keys(bySemester).sort((a, b) => {
           const [termA, yearA] = [a.split(" ")[0], parseInt(a.split(" ")[1]) || 0];
           const [termB, yearB] = [b.split(" ")[0], parseInt(b.split(" ")[1]) || 0];
@@ -1103,12 +1283,11 @@ export default function StudentDashboard() {
                         <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Total Grades</p>
                         <p className="text-2xl font-semibold text-white">{txGrades.length}</p>
                       </div>
-                      {overallAvg !== null && (
+                      {overallAlb !== null && (
                         <div>
-                          <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Cumulative Avg</p>
-                          <p className={`text-2xl font-semibold ${overallAvg >= 90 ? "text-emerald-400" : overallAvg >= 70 ? "text-blue-400" : overallAvg >= 50 ? "text-amber-400" : "text-rose-400"}`}>
-                            {overallAvg}%
-                          </p>
+                          <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Cumulative</p>
+                          <p className={`text-2xl font-semibold ${albColor(overallAlb)}`}>{overallAlb.toFixed(1)}/10</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{overallGPA} GPA</p>
                         </div>
                       )}
                     </div>
@@ -1121,25 +1300,32 @@ export default function StudentDashboard() {
                 ) : sortedSemesters.map(sem => {
                   const coursesInSem = Object.values(bySemester[sem]);
                   const semGrades = coursesInSem.flatMap(c => c.grades);
-                  const semAvg = semGrades.length > 0
-                    ? Math.round(semGrades.reduce((s, g) => s + (g.value || 0), 0) / semGrades.length)
+                  const semAlb = semGrades.length > 0
+                    ? semGrades.reduce((s, g) => s + toAlbanian(g.value || 0), 0) / semGrades.length
+                    : null;
+                  const semGPA = semGrades.length > 0
+                    ? (semGrades.reduce((s, g) => s + albanianToGPA(g.value || 0), 0) / semGrades.length).toFixed(2)
                     : null;
                   return (
                     <div key={sem} className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
                       {/* Semester header */}
                       <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
                         <h2 className="text-sm font-semibold text-white">{sem}</h2>
-                        {semAvg !== null && (
-                          <span className={`text-sm font-semibold ${semAvg >= 90 ? "text-emerald-400" : semAvg >= 70 ? "text-blue-400" : semAvg >= 50 ? "text-amber-400" : "text-rose-400"}`}>
-                            Avg {semAvg}%
-                          </span>
+                        {semAlb !== null && (
+                          <div className="text-right">
+                            <span className={`text-sm font-semibold ${albColor(semAlb)}`}>Avg {semAlb.toFixed(1)}/10</span>
+                            <p className="text-xs text-slate-500">{semGPA} GPA</p>
+                          </div>
                         )}
                       </div>
                       {/* Courses in semester */}
                       <div className="divide-y divide-slate-700/60">
                         {coursesInSem.map((course, idx) => {
-                          const courseAvg = course.grades.length > 0
-                            ? Math.round(course.grades.reduce((s, g) => s + (g.value || 0), 0) / course.grades.length)
+                          const courseAlb = course.grades.length > 0
+                            ? course.grades.reduce((s, g) => s + toAlbanian(g.value || 0), 0) / course.grades.length
+                            : null;
+                          const courseGPAavg = course.grades.length > 0
+                            ? (course.grades.reduce((s, g) => s + albanianToGPA(g.value || 0), 0) / course.grades.length).toFixed(2)
                             : null;
                           return (
                             <div key={course.info?.id || idx} className="px-6 py-4">
@@ -1152,10 +1338,11 @@ export default function StudentDashboard() {
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-slate-500">
                                   {course.info?.credits && <span>{course.info.credits} cr</span>}
-                                  {courseAvg !== null && (
-                                    <span className={`font-semibold text-sm ${courseAvg >= 90 ? "text-emerald-400" : courseAvg >= 70 ? "text-blue-400" : courseAvg >= 50 ? "text-amber-400" : "text-rose-400"}`}>
-                                      {courseAvg}%
-                                    </span>
+                                  {courseAlb !== null && (
+                                    <div className="text-right">
+                                      <span className={`font-semibold text-sm ${albColor(courseAlb)}`}>{courseAlb.toFixed(1)}/10</span>
+                                      <p className="text-xs text-slate-500">{courseGPAavg} GPA</p>
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -1163,7 +1350,8 @@ export default function StudentDashboard() {
                                 {course.grades.map(g => (
                                   <span key={g.id} className="text-xs flex items-center gap-1.5 bg-slate-700/50 border border-slate-600/40 px-2.5 py-1 rounded-lg">
                                     <span className="text-slate-400 capitalize">{g.grade_type || "Assessment"}:</span>
-                                    <span className={`font-semibold ${g.value >= 90 ? "text-emerald-400" : g.value >= 70 ? "text-amber-400" : "text-rose-400"}`}>{g.value}%</span>
+                                    <span className={`font-semibold ${gradeColor(g.value)}`}>{toAlbanian(g.value).toFixed(1)}/10</span>
+                                    <span className="text-slate-500">({albanianToGPA(g.value).toFixed(1)} GPA)</span>
                                     {g.weight != null && <span className="text-slate-600">· {g.weight}% wt</span>}
                                   </span>
                                 ))}

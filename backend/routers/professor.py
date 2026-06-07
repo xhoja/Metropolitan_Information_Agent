@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Header, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Header, UploadFile, File, Form, Body
 from pydantic import BaseModel
 from typing import Optional, List
 import json
@@ -29,12 +29,7 @@ class GradeInput(BaseModel):
 def get_current_semester() -> str:
     month = dt.utcnow().month
     year = dt.utcnow().year
-    if month <= 5:
-        return f"Spring {year}"
-    elif month <= 7:
-        return f"Summer {year}"
-    else:
-        return f"Fall {year}"
+    return f"Spring {year}" if month <= 6 else f"Autumn {year}"
 
 class AttendanceBulkItem(BaseModel):
     student_id: str
@@ -113,10 +108,14 @@ def delete_grade_component(course_id: str, component_id: str, authorization: str
 def add_grade(data: GradeInput, authorization: str = Header(...)):
     token = authorization.replace("Bearer ", "")
     get_professor_id(token)
-    comp = supabase.table("grade_components").select("name, weight").eq("id", data.component_id).execute()
+    if not (0 <= data.value <= 100):
+        raise HTTPException(status_code=400, detail="Points must be between 0 and 100.")
+    comp = supabase.table("grade_components").select("name, weight, course_id").eq("id", data.component_id).execute()
     if not comp.data:
         raise HTTPException(status_code=404, detail="Grade component not found.")
     component = comp.data[0]
+    if component["course_id"] != data.course_id:
+        raise HTTPException(status_code=400, detail="Component does not belong to the selected course.")
     res = supabase.table("grades").insert({
         "student_id": data.student_id,
         "course_id": data.course_id,
@@ -135,11 +134,11 @@ class GradeUpdate(BaseModel):
 def update_grade(grade_id: str, data: GradeUpdate, authorization: str = Header(...)):
     token = authorization.replace("Bearer ", "")
     get_professor_id(token)
-    existing = supabase.table("grades").select("semester").eq("id", grade_id).execute()
+    if not (0 <= data.value <= 100):
+        raise HTTPException(status_code=400, detail="Points must be between 0 and 100.")
+    existing = supabase.table("grades").select("id").eq("id", grade_id).execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Grade not found.")
-    if existing.data[0]["semester"] != get_current_semester():
-        raise HTTPException(status_code=403, detail="Cannot edit grades from a past semester.")
     comp = supabase.table("grade_components").select("name, weight").eq("id", data.component_id).execute()
     if not comp.data:
         raise HTTPException(status_code=404, detail="Grade component not found.")
@@ -157,11 +156,9 @@ def update_grade(grade_id: str, data: GradeUpdate, authorization: str = Header(.
 def delete_grade(grade_id: str, authorization: str = Header(...)):
     token = authorization.replace("Bearer ", "")
     get_professor_id(token)
-    existing = supabase.table("grades").select("semester").eq("id", grade_id).execute()
+    existing = supabase.table("grades").select("id").eq("id", grade_id).execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Grade not found.")
-    if existing.data[0]["semester"] != get_current_semester():
-        raise HTTPException(status_code=403, detail="Cannot delete grades from a past semester.")
     supabase.table("grades").delete().eq("id", grade_id).execute()
     return {"ok": True}
 
@@ -285,6 +282,95 @@ def get_assignments(course_id: str, authorization: str = Header(...)):
 @router.delete("/assignments/{assignment_id}")
 def delete_assignment(assignment_id: str, authorization: str = Header(...)):
     supabase.table("assignments").delete().eq("id", assignment_id).execute()
+    return {"ok": True}
+
+@router.get("/assignments/{assignment_id}/submissions")
+def get_assignment_submissions(assignment_id: str, authorization: str = Header(...)):
+    token = authorization.replace("Bearer ", "")
+    get_professor_id(token)
+    assignment = supabase.table("assignments").select("course_id, title, type").eq("id", assignment_id).execute().data
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    course_id = assignment[0]["course_id"]
+    components = supabase.table("grade_components").select("id, name, weight").eq("course_id", course_id).order("created_at").execute().data
+    enrollments = supabase.table("enrollments").select("students(id, users(name, email))").eq("course_id", course_id).execute().data
+    submissions = supabase.table("submissions").select("id, student_id, submitted_at, file_url, grade").eq("assignment_id", assignment_id).execute().data
+    submitted_map = {s["student_id"]: s for s in submissions}
+    result = []
+    for e in enrollments:
+        student = (e.get("students") or {})
+        student_id = student.get("id")
+        user = student.get("users") or {}
+        sub = submitted_map.get(student_id)
+        result.append({
+            "student_id": student_id,
+            "name": user.get("name", "Unknown"),
+            "email": user.get("email", ""),
+            "submitted": sub is not None,
+            "submission_id": sub["id"] if sub else None,
+            "submitted_at": sub["submitted_at"] if sub else None,
+            "file_url": sub["file_url"] if sub else None,
+            "grade": sub["grade"] if sub else None,
+        })
+    # Cross-reference grades table so grade shows even if recorded via Grades tab
+    assignment_type = (assignment[0].get("type") or "").lower()
+    matched_comp = next((c for c in components if assignment_type in c["name"].lower() or c["name"].lower() in assignment_type), None)
+    if matched_comp:
+        grades_res = supabase.table("grades").select("student_id, value").eq("course_id", course_id).eq("grade_type", matched_comp["name"]).execute().data
+        grade_map = {g["student_id"]: g["value"] for g in grades_res}
+        for r in result:
+            if r["grade"] is None:
+                r["grade"] = grade_map.get(r["student_id"])
+
+    result.sort(key=lambda x: (not x["submitted"], x["name"]))
+    return {
+        "assignment_title": assignment[0]["title"],
+        "assignment_type": assignment[0].get("type", ""),
+        "course_id": course_id,
+        "components": components,
+        "submissions": result,
+    }
+
+class GradeSubmissionBody(BaseModel):
+    grade: float
+    component_id: Optional[str] = None
+
+@router.put("/submissions/{submission_id}/grade")
+def grade_submission(submission_id: str, data: GradeSubmissionBody, authorization: str = Header(...)):
+    token = authorization.replace("Bearer ", "")
+    get_professor_id(token)
+    if not (0 <= data.grade <= 100):
+        raise HTTPException(status_code=400, detail="Points must be between 0 and 100.")
+    sub = supabase.table("submissions").select("student_id, assignment_id").eq("id", submission_id).execute().data
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found.")
+    supabase.table("submissions").update({"grade": data.grade}).eq("id", submission_id).execute()
+    student_id = sub[0]["student_id"]
+    assignment_id = sub[0]["assignment_id"]
+    assignment = supabase.table("assignments").select("course_id, type").eq("id", assignment_id).execute().data
+    if not assignment:
+        return {"ok": True}
+    course_id = assignment[0]["course_id"]
+    from datetime import date
+    m = date.today().month
+    y = date.today().year
+    semester = f"Spring {y}" if m <= 6 else f"Autumn {y}"
+    # Use explicit component_id if provided, otherwise try to match by type
+    matched = None
+    if data.component_id:
+        comp = supabase.table("grade_components").select("id, name, weight").eq("id", data.component_id).execute().data
+        if comp:
+            matched = comp[0]
+    else:
+        assignment_type = (assignment[0].get("type") or "").lower()
+        components = supabase.table("grade_components").select("id, name, weight").eq("course_id", course_id).execute().data
+        matched = next((c for c in components if assignment_type in c["name"].lower() or c["name"].lower() in assignment_type), None)
+    if matched:
+        existing = supabase.table("grades").select("id").eq("student_id", student_id).eq("course_id", course_id).eq("grade_type", matched["name"]).execute().data
+        if existing:
+            supabase.table("grades").update({"value": data.grade}).eq("id", existing[0]["id"]).execute()
+        else:
+            supabase.table("grades").insert({"student_id": student_id, "course_id": course_id, "value": data.grade, "semester": semester, "grade_type": matched["name"], "weight": matched["weight"]}).execute()
     return {"ok": True}
 
 @router.get("/courses/{course_id}/students")

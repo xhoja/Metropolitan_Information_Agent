@@ -1,12 +1,24 @@
 import { useState, useEffect } from 'react'
 import api from '../../api/axios'
 
+function toAlbanian(v) {
+  if (v >= 95) return 10;
+  if (v >= 85) return 9;
+  if (v >= 75) return 8;
+  if (v >= 65) return 7;
+  if (v >= 55) return 6;
+  if (v >= 45) return 5;
+  return 4;
+}
 function gradeLabel(value) {
-  if (value >= 90) return { label: 'A', color: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30' }
-  if (value >= 80) return { label: 'B', color: 'text-blue-300 bg-blue-300/15 border-blue-400/30' }
-  if (value >= 70) return { label: 'C', color: 'text-amber-300 bg-amber-500/15 border-amber-500/30' }
-  if (value >= 60) return { label: 'D', color: 'text-orange-300 bg-orange-500/15 border-orange-500/30' }
-  return { label: 'F', color: 'text-rose-300 bg-rose-500/15 border-rose-500/30' }
+  const alb = toAlbanian(value)
+  if (alb >= 10) return { label: 'A',  alb, color: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30' }
+  if (alb >= 9)  return { label: 'A−', alb, color: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30' }
+  if (alb >= 8)  return { label: 'B+', alb, color: 'text-blue-300 bg-blue-300/15 border-blue-400/30' }
+  if (alb >= 7)  return { label: 'B',  alb, color: 'text-blue-300 bg-blue-300/15 border-blue-400/30' }
+  if (alb >= 6)  return { label: 'C',  alb, color: 'text-amber-300 bg-amber-500/15 border-amber-500/30' }
+  if (alb >= 5)  return { label: 'D',  alb, color: 'text-orange-300 bg-orange-500/15 border-orange-500/30' }
+  return { label: 'F', alb, color: 'text-rose-300 bg-rose-500/15 border-rose-500/30' }
 }
 
 export default function GradesTab() {
@@ -55,8 +67,8 @@ export default function GradesTab() {
             <p className="text-slate-500 text-xs mt-0.5">Class average</p>
           </div>
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-            <p className="text-2xl font-semibold text-emerald-400">{grades.filter(g => g.value >= 60).length}</p>
-            <p className="text-slate-500 text-xs mt-0.5">Passing</p>
+            <p className="text-2xl font-semibold text-emerald-400">{grades.filter(g => g.value >= 45).length}</p>
+            <p className="text-slate-500 text-xs mt-0.5">Passing (≥45 pts)</p>
           </div>
         </div>
       )}
@@ -91,20 +103,23 @@ export default function GradesTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800">
-                {['Student', 'Course', 'Semester', 'Score', 'Grade'].map(h => (
+                {['Student', 'Course', 'Semester', 'Points', 'Albanian', 'Grade'].map(h => (
                   <th key={h} className="text-left px-6 py-4 text-slate-500 font-medium text-xs uppercase tracking-widest">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map((g, i) => {
-                const { label, color } = gradeLabel(g.value)
+                const { label, alb, color } = gradeLabel(g.value)
                 return (
                   <tr key={g.id || i} className={`hover:bg-slate-950/40 transition-colors ${i < filtered.length - 1 ? 'border-b border-slate-800/60' : ''}`}>
                     <td className="px-6 py-4 font-medium text-white">{g.student_name || g.student_id}</td>
                     <td className="px-6 py-4 text-slate-400">{g.course_title || g.course_id}</td>
                     <td className="px-6 py-4 text-slate-500 text-sm">{g.semester}</td>
-                    <td className="px-6 py-4 text-white font-mono text-sm">{g.value}</td>
+                    <td className="px-6 py-4 text-white font-mono text-sm">{g.value}/100</td>
+                    <td className="px-6 py-4">
+                      <span className={`text-sm font-semibold ${alb >= 9 ? 'text-emerald-400' : alb >= 7 ? 'text-blue-400' : alb >= 5 ? 'text-amber-400' : 'text-rose-400'}`}>{alb}/10</span>
+                    </td>
                     <td className="px-6 py-4">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-md border ${color}`}>{label}</span>
                     </td>

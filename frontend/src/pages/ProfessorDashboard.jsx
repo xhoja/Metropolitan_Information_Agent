@@ -19,9 +19,7 @@ const EMPTY_COMP = { name: '', weight: '' }
 const getCurrentSemester = () => {
   const month = new Date().getMonth() + 1
   const year = new Date().getFullYear()
-  if (month <= 5) return `Spring ${year}`
-  if (month <= 7) return `Summer ${year}`
-  return `Fall ${year}`
+  return month <= 6 ? `Spring ${year}` : `Autumn ${year}`
 }
 const CURRENT_SEMESTER = getCurrentSemester()
 const TODAY = new Date().toISOString().split('T')[0]
@@ -62,6 +60,7 @@ export default function ProfessorDashboard() {
   const [assignSaving, setAssignSaving]           = useState(false)
   const [assignError, setAssignError]             = useState('')
   const [assignFiles, setAssignFiles]             = useState([])
+  const [submissionsModal, setSubmissionsModal]   = useState(null)
 
   // grades tab
   const [gradeForm, setGradeForm]         = useState(EMPTY_GRADE)
@@ -74,6 +73,7 @@ export default function ProfessorDashboard() {
   const [gradesLoading, setGradesLoading] = useState(false)
   const [editingGradeId, setEditingGradeId] = useState(null)
   const [gradeComponents, setGradeComponents] = useState([])
+  const [compComponents, setCompComponents]   = useState([])
   const [compCourse, setCompCourse]       = useState('')
   const [compForm, setCompForm]           = useState(EMPTY_COMP)
   const [compSaving, setCompSaving]       = useState(false)
@@ -254,6 +254,13 @@ export default function ProfessorDashboard() {
       .catch(() => setGradeComponents([]))
   }
 
+  const fetchCompComponents = (courseId) => {
+    if (!courseId) { setCompComponents([]); return }
+    api.get(`/professor/courses/${courseId}/components`)
+      .then(r => setCompComponents(r.data))
+      .catch(() => setCompComponents([]))
+  }
+
   const handleEditGrade = (g) => {
     setEditingGradeId(g.id)
     const matchedComp = gradeComponents.find(c => c.name === g.grade_type)
@@ -302,7 +309,7 @@ export default function ProfessorDashboard() {
       setCompSuccess(`${compForm.name} added.`)
       setCompForm(EMPTY_COMP)
       const r = await api.get(`/professor/courses/${compCourse}/components`)
-      setGradeComponents(r.data)
+      setCompComponents(r.data)
       if (gradeForm.course_id === compCourse) setGradeComponents(r.data)
     } catch (err) {
       setCompError(err.response?.data?.detail || 'Failed to add component.')
@@ -315,7 +322,7 @@ export default function ProfessorDashboard() {
     if (!window.confirm('Delete this component? Existing grades will keep their recorded type/weight.')) return
     try {
       await api.delete(`/professor/courses/${compCourse}/components/${compId}`)
-      setGradeComponents(c => c.filter(x => x.id !== compId))
+      setCompComponents(c => c.filter(x => x.id !== compId))
     } catch {
       alert('Failed to delete component.')
     }
@@ -744,9 +751,21 @@ export default function ProfessorDashboard() {
                           })()}
                         </td>
                         <td className="px-6 py-4">
-                          <button onClick={() => handleDeleteAssignment(a.id)} className="text-slate-500 hover:text-rose-400 transition-colors" title="Delete">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={async () => {
+                                const res = await api.get(`/professor/assignments/${a.id}/submissions`)
+                                setSubmissionsModal(res.data)
+                              }}
+                              className="text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium"
+                              title="View Submissions"
+                            >
+                              Submissions
+                            </button>
+                            <button onClick={() => handleDeleteAssignment(a.id)} className="text-slate-500 hover:text-rose-400 transition-colors" title="Delete">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -754,6 +773,68 @@ export default function ProfessorDashboard() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* SUBMISSIONS MODAL */}
+        {submissionsModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+                <div>
+                  <p className="text-amber-500 text-xs font-medium uppercase tracking-[0.2em] mb-0.5">Submissions</p>
+                  <h2 className="text-xl font-semibold text-white">{submissionsModal.assignment_title}</h2>
+                  {submissionsModal.components.length === 0 && (
+                    <p className="text-xs text-rose-400 mt-1">No grade components defined for this course — grades won't be recorded until components are added.</p>
+                  )}
+                </div>
+                <button onClick={() => { setSubmissionsModal(null); setGradingInputs({}) }} className="text-slate-400 hover:text-white transition">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1">
+                {submissionsModal.submissions.length === 0 ? (
+                  <p className="text-slate-500 text-sm px-6 py-8">No students enrolled.</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-800">
+                        {['Student', 'Status', 'Files'].map(h => (
+                          <th key={h} className="text-left px-6 py-3 text-slate-500 font-medium text-xs uppercase tracking-widest">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {submissionsModal.submissions.map((s, i) => {
+                        let fileUrls = []
+                        try { const p = JSON.parse(s.file_url); fileUrls = Array.isArray(p) ? p : (p ? [p] : []) } catch { fileUrls = s.file_url ? [s.file_url] : [] }
+                        return (
+                          <tr key={i} className={`border-b border-slate-800/50 ${!s.submitted ? 'opacity-50' : ''}`}>
+                            <td className="px-6 py-4 text-white font-medium">{s.name}<div className="text-xs text-slate-500">{s.email}</div></td>
+                            <td className="px-6 py-4">
+                              {s.submitted
+                                ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/30">Submitted</span>
+                                : <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">Not Submitted</span>}
+                              {s.submitted_at && <div className="text-xs text-slate-600 mt-0.5">{new Date(s.submitted_at).toLocaleDateString()}</div>}
+                            </td>
+                            <td className="px-6 py-4">
+                              {fileUrls.length > 0
+                                ? <div className="flex flex-col gap-1">{fileUrls.map((u, j) => <a key={j} href={u} target="_blank" rel="noreferrer" className="text-xs text-amber-400 hover:underline block">File {j + 1}</a>)}</div>
+                                : <span className="text-slate-600 text-xs">—</span>}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              <div className="px-6 py-4 border-t border-slate-800 text-xs text-slate-500">
+                <span>{submissionsModal.submissions.filter(s => s.submitted).length} / {submissionsModal.submissions.length} submitted</span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -776,7 +857,7 @@ export default function ProfessorDashboard() {
                       value={compCourse}
                       onChange={e => {
                         setCompCourse(e.target.value)
-                        fetchComponents(e.target.value)
+                        fetchCompComponents(e.target.value)
                         setCompError('')
                         setCompSuccess('')
                       }}
@@ -823,7 +904,7 @@ export default function ProfessorDashboard() {
                 <div>
                   {!compCourse ? (
                     <div className="bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center py-10 text-slate-500 text-sm">Select a course to manage components.</div>
-                  ) : gradeComponents.length === 0 ? (
+                  ) : compComponents.length === 0 ? (
                     <div className="bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center py-10 text-slate-500 text-sm">No components defined yet.</div>
                   ) : (
                     <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
@@ -836,7 +917,7 @@ export default function ProfessorDashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {gradeComponents.map((c, i) => (
+                          {compComponents.map((c, i) => (
                             <tr key={c.id} className={`hover:bg-slate-950/40 transition-colors ${i < gradeComponents.length - 1 ? 'border-b border-slate-800/60' : ''}`}>
                               <td className="px-4 py-3 text-white text-sm">{c.name}</td>
                               <td className="px-4 py-3 text-slate-400 text-sm">{c.weight}%</td>
@@ -855,7 +936,7 @@ export default function ProfessorDashboard() {
                           <tr className="border-t border-slate-700">
                             <td className="px-4 py-2 text-slate-500 text-xs">Total</td>
                             <td className="px-4 py-2 text-slate-400 text-xs font-semibold">
-                              {gradeComponents.reduce((s, c) => s + c.weight, 0).toFixed(1)}%
+                              {compComponents.reduce((s, c) => s + c.weight, 0).toFixed(1)}%
                             </td>
                             <td />
                           </tr>
@@ -933,20 +1014,20 @@ export default function ProfessorDashboard() {
                         </select>
                       )}
                     </Field>
-                    <Field label="Grade (0–100)">
+                    <Field label="Points (0–100)">
                       <input
                         required
                         type="number"
                         min="0"
                         max="100"
-                        step="0.1"
+                        step="0.5"
                         value={gradeForm.value}
                         onChange={e => setGradeForm(f => ({ ...f, value: e.target.value }))}
-                        placeholder="e.g. 87.5"
+                        placeholder="e.g. 87"
                         className="input-base"
                       />
                     </Field>
-                    <p className="text-slate-500 text-xs -mt-2">Semester is auto-determined from today's date.</p>
+                    <p className="text-slate-500 text-xs -mt-2">Semester auto-determined. 45 pts = min pass (grade 5). System converts to Albanian scale.</p>
                     {gradeError   && <p className="text-rose-400 text-sm">{gradeError}</p>}
                     {gradeSuccess && <p className="text-emerald-400 text-sm">{gradeSuccess}</p>}
                     <div className="flex gap-2">
@@ -983,7 +1064,6 @@ export default function ProfessorDashboard() {
                   value={gradeViewCourse}
                   onChange={e => {
                     setGradeViewCourse(e.target.value)
-                    fetchComponents(e.target.value)
                     setFilterStudent('')
                     setFilterComponent('')
                   }}
@@ -1060,31 +1140,27 @@ export default function ProfessorDashboard() {
                             <span className="text-xs font-medium px-2 py-0.5 rounded capitalize bg-blue-300/15 text-blue-300 border border-blue-400/30">{g.grade_type}</span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`text-sm font-semibold ${g.value >= 90 ? 'text-emerald-400' : g.value >= 70 ? 'text-amber-400' : 'text-rose-400'}`}>
-                              {g.value}
+                            <span className={`text-sm font-semibold ${g.value >= 85 ? 'text-emerald-400' : g.value >= 65 ? 'text-blue-400' : g.value >= 45 ? 'text-amber-400' : 'text-rose-400'}`}>
+                              {g.value}/100
                             </span>
                           </td>
                           <td className="px-4 py-3 text-slate-400 text-sm">{g.weight}%</td>
                           <td className="px-4 py-3 text-slate-400 text-sm">{g.semester}</td>
                           <td className="px-4 py-3">
-                            {g.semester === CURRENT_SEMESTER ? (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleEditGrade(g)}
-                                  className="text-sm text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-400/50 px-3 py-1.5 rounded-lg transition"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteGrade(g.id)}
-                                  className="text-sm text-rose-400 hover:text-rose-300 border border-rose-500/30 hover:border-rose-400/50 px-3 py-1.5 rounded-lg transition"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-slate-600 italic">Locked</span>
-                            )}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditGrade(g)}
+                                className="text-sm text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-400/50 px-3 py-1.5 rounded-lg transition"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteGrade(g.id)}
+                                className="text-sm text-rose-400 hover:text-rose-300 border border-rose-500/30 hover:border-rose-400/50 px-3 py-1.5 rounded-lg transition"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1180,6 +1256,43 @@ export default function ProfessorDashboard() {
                 <EmptyState message="Select a course to take attendance." />
               ) : (
                 <div className="grid grid-cols-1 gap-8">
+
+                  {/* Attendance failure report */}
+                  {attendRecords.length > 0 && (() => {
+                    const byStudent = {}
+                    attendRecords.forEach(r => {
+                      if (!byStudent[r.student_id]) byStudent[r.student_id] = { name: r.student_name || r.student_id, email: r.student_email || '', hours: 0, weeks: new Set() }
+                      byStudent[r.student_id].hours += r.hours_present
+                      byStudent[r.student_id].weeks.add(r.week_number)
+                    })
+                    const totalWeeks = new Set(attendRecords.map(r => r.week_number)).size
+                    const hoursTotal = totalWeeks * SESSION_HOURS
+                    const failed = Object.values(byStudent).filter(s => {
+                      const rate = hoursTotal > 0 ? (s.hours / hoursTotal) * 100 : 0
+                      s.rate = rate
+                      return rate < 75
+                    })
+                    if (failed.length === 0) return null
+                    return (
+                      <div className="mb-6 bg-rose-500/5 border border-rose-500/30 rounded-xl overflow-hidden">
+                        <div className="px-5 py-3 border-b border-rose-500/20 flex items-center gap-2">
+                          <svg className="w-4 h-4 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                          <p className="text-rose-300 text-sm font-semibold">{failed.length} student{failed.length > 1 ? 's' : ''} failed due to attendance (&lt;75%)</p>
+                        </div>
+                        <div className="divide-y divide-rose-500/10">
+                          {failed.map(s => (
+                            <div key={s.email} className="px-5 py-3 flex items-center justify-between">
+                              <div>
+                                <p className="text-white text-sm font-medium">{s.name}</p>
+                                <p className="text-slate-500 text-xs">{s.email}</p>
+                              </div>
+                              <span className="text-rose-400 text-sm font-semibold">{s.rate.toFixed(1)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })()}
 
                   {/* Attendance sheet */}
                   <div>
