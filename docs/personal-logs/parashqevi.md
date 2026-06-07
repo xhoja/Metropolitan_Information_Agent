@@ -4,6 +4,30 @@
 
 ---
 
+## Week 9 — 2026-06-07
+
+Final week of the project. Completed the last backend documentation and personal log entries in preparation for the June 8 submission and presentation. Conducted a final review of all backend components to confirm there were no regressions or open issues across any of the admin, professor, and student routes. Verified that the repository is clean, all required files are present, and the codebase is ready for submission. Reviewed the overall structure of the project deliverables alongside the team and signed off on the backend layer.
+
+---
+
+## Week 8 — 2026-06-05
+
+Participated in the team's final review and debugging session ahead of submission. Finished the remaining backend documentation and reports, and reviewed all backend components to confirm stability across admin, professor, and student endpoints. Contributed to the final submission checklist — going through the codebase, meeting reports, and repository structure to confirm everything was in order. The team confirmed the project is ready for final submission, scheduled for June 6, with the presentation on June 8.
+
+---
+
+## Week 7 — 2026-06-01
+
+Completed and shared the full API documentation with the team, covering all endpoints with request payloads, response formats, and error codes. The documentation was reviewed by all members and confirmed ready for submission. Participated in the full end-to-end integration testing session across all three dashboards — student, professor, and admin. Several minor mismatches between frontend expectations and backend responses were identified and resolved during the session. Verified that all backend endpoints are reachable and respond correctly under real integration conditions.
+
+---
+
+## Week 6 — 2026-05-17
+
+Focused on finalizing the backend layer and beginning formal API documentation. Confirmed all endpoints are stable and consistent across admin, professor, and student routes. Drafted the initial API documentation covering endpoint signatures, request payloads, and expected response formats for all routes. Coordinated with Aida to ensure complete coverage across the full API surface ahead of the end-to-end integration testing phase.
+
+---
+
 ## Week 5 — 2026-05-11
 
 This week I focused on refining and stabilising the admin and professor backend endpoints. Reviewed all admin routes for edge cases and ensured proper validation and error responses. Worked on professor dashboard API — course management, grade submission, and attendance endpoints — testing each against the frontend integration. Coordinated with the frontend team to resolve any mismatches in response structure.
