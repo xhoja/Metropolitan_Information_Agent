@@ -97,7 +97,7 @@ def fetch_student_profile(student_id: str) -> Dict[str, Any]:
                 grade_record['grade'] = grade_record.pop('value')
         
         # Attendance
-        attendance = supabase.table("attendance").select("status, course_id, date, courses(title, code)").eq("student_id", student_id).order("date", desc=True).execute()
+        attendance = supabase.table("attendance").select("status, course_id, date, hours_present, week_number, courses(title, code)").eq("student_id", student_id).order("date", desc=True).execute()
         
         # Student preferences
         preferences = supabase.table("student_preferences").select("preference_text").eq("student_id", student_id).execute()
@@ -160,7 +160,7 @@ def calculate_attendance_stats(attendance: list) -> Dict[str, Any]:
 
 
 def calculate_course_attendance_stats(attendance: list) -> Dict[str, Any]:
-    """Calculate attendance statistics by course."""
+    """Calculate attendance statistics by course using hours_present/week_number, matching frontend formula."""
     courses = {}
     for record in attendance:
         course = record.get("courses") or {}
@@ -174,8 +174,14 @@ def calculate_course_attendance_stats(attendance: list) -> Dict[str, Any]:
                 "present": 0,
                 "absent": 0,
                 "late": 0,
+                "hours_present": 0,
+                "week_numbers": set(),
             }
         courses[course_key]["total"] += 1
+        courses[course_key]["hours_present"] += record.get("hours_present") or 0
+        week = record.get("week_number")
+        if week is not None:
+            courses[course_key]["week_numbers"].add(week)
         if record["status"] == "present":
             courses[course_key]["present"] += 1
         elif record["status"] == "absent":
@@ -184,7 +190,15 @@ def calculate_course_attendance_stats(attendance: list) -> Dict[str, Any]:
             courses[course_key]["late"] += 1
 
     for stats in courses.values():
-        stats["presence_rate"] = (stats["present"] / stats["total"] * 100) if stats["total"] > 0 else 0
+        weeks = len(stats["week_numbers"])
+        hours_scheduled = weeks * 4
+        if hours_scheduled > 0:
+            stats["presence_rate"] = (stats["hours_present"] / hours_scheduled) * 100
+        elif stats["total"] > 0:
+            stats["presence_rate"] = (stats["present"] / stats["total"]) * 100
+        else:
+            stats["presence_rate"] = 0
+        del stats["week_numbers"]
     return courses
 
 

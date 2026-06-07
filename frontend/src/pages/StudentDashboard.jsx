@@ -472,12 +472,12 @@ export default function StudentDashboard() {
             (g) => g.course_id === selectedCourse.courses?.id
           );
           const totalSessions = courseAttendance.length;
-          const presentCount = courseAttendance.filter(
-            (r) => r.status === "present"
-          ).length;
+          const hoursPresent = courseAttendance.reduce((sum, r) => sum + (r.hours_present || 0), 0);
+          const weeksRecorded = new Set(courseAttendance.map(r => r.week_number)).size;
+          const hoursScheduled = weeksRecorded * 4;
           const attendancePct =
-            totalSessions > 0
-              ? Math.round((presentCount / totalSessions) * 100)
+            hoursScheduled > 0
+              ? Math.round((hoursPresent / hoursScheduled) * 100)
               : null;
           const professorName =
             selectedCourse.courses?.professors?.users?.name || null;
@@ -530,7 +530,7 @@ export default function StudentDashboard() {
                   {attendancePct !== null ? (
                     <>
                       <p className="text-4xl font-semibold text-white mb-1">{attendancePct}%</p>
-                      <p className="text-xs text-slate-500">{presentCount} / {totalSessions} sessions</p>
+                      <p className="text-xs text-slate-500">{hoursPresent} / {hoursScheduled}h attended</p>
                     </>
                   ) : (
                     <p className="text-slate-500 text-sm">No records</p>
