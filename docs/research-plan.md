@@ -246,11 +246,6 @@ Each member logs findings in their **personal wiki page** under a `## Research L
 **Key findings (1–2 sentences):**
 - Main insight or recommendation
 
-**Metrics (if applicable):**
-- Latency: XXms
-- Bundle size: XXkb
-- Cost per request: $XX
-
 **Next steps / recommendations:**
 - Should we proceed with this tech?
 - Any concerns for production use?

@@ -131,6 +131,44 @@ erDiagram
     STUDENTS ||--o{ STUDENT_PREFERENCES : "stores"
 ```
 
+# Class Diagram — Core Academic
+
+![Class Diagram Core Academic](MIA_ClassDiagram_CoreAcademic.png)
+
+**Classes:** User, Student, Professor, Course, Enrollment, Grade, GradeComponent, Attendance, Assignment, Submission, Material
+
+Relationships: composition (Course → GradeComponent), aggregation (User → Student/Professor), association across enrollment, grade, attendance, assignment, and submission boundaries.
+
+---
+
+# Class Diagram — Finance
+
+![Class Diagram Finance](MIA_ClassDiagram_Finance.png)
+
+**Classes:** StudentFee, MajorFee, Installment, FeeTransaction — with external Student boundary from Core Academic diagram.
+
+StudentFee composes Installment and FeeTransaction. MajorFee derives major-level fee rules and auto-assigns to students.
+
+---
+
+# Layered Architecture
+
+![Layered Architecture](MIA_LayeredArchitecture.png)
+
+5-layer architecture:
+
+| Layer | Name | Key files |
+|-------|------|-----------|
+| L1 | Presentation | React 19 SPA — `App.jsx`, dashboard components, `axios.js` |
+| L2 | HTTP Interface | FastAPI routes, Pydantic schemas, CORS — `main.py`, `schemas/*.py` |
+| L3 | Application Logic | Fat-router pattern — `routers/*.py`, `agent/mia.py` |
+| L4 | Data Client | Thin Supabase SDK wrapper — `db.py` |
+| L5 | External Services | Supabase PostgreSQL, Supabase Storage, Groq Cloud API |
+
+Layer skip noted: `agent/mia.py` (L3) calls Groq directly, bypassing L4. `axios.js` serves L1 and L2 boundary.
+
+---
+
 # Use Cases — Actor-Specific Diagrams
 
 ## Administrator Use Cases
@@ -169,6 +207,21 @@ erDiagram
 
 ![Assignment Submission Flow BPMN](Assignment-Submission-BPMN.svg)
 
+# State Diagram — Assignment Lifecycle
+
+![State Diagram Assignment](MIA_StateDiagram_Assignment.png)
+
+4 states: **Published** → **Submitted** → **Graded** | **Deleted**
+
+- **Published**: Professor creates assignment; INSERT into `assignments`, file uploaded to Supabase Storage
+- **Submitted**: Student submits (enrolled only); INSERT into `submissions`, file auto-set by Supabase
+- **Graded**: UPDATE `submissions SET grade=?, feedback=?` — endpoint planned, not yet implemented
+- **Deleted**: Hard delete from `assignments`; cascades to submissions
+
+All transitions one-way. `due_date` display only — no overdue transition implemented.
+
+---
+
 # DFD Level 0 — Context Diagram
 
 ```mermaid
@@ -193,53 +246,10 @@ flowchart LR
 
 # DFD Level 1 — Process Detail
 
-```mermaid
-flowchart TD
-    STU([Student])
-    PROF([Professor])
-    ADMIN([Admin])
-    GROQ([Groq LLM API])
-    STORAGE([Supabase Storage])
+![DFD Level 1](MIA_DFD_Level1.png)
 
-    D1[(D1: Users\n& Profiles)]
-    D2[(D2: Academic Records\nCourses, Grades,\nAttendance, Enrollments)]
-    D3[(D3: Assignments\n& Submissions)]
-    D4[(D4: Course\nMaterials)]
-    D5[(D5: Chat Sessions\n& Messages)]
+**Processes:** 1.0 Authentication · 2.0 Enrollment · 3.0 Grade · 4.0 Attendance · 5.0 Assignments & Materials · 6.0 Payment · 7.0 MIA Chat
 
-    STU & PROF & ADMIN -->|credentials| P1[1.0\nAuthenticate]
-    P1 <-->|user lookup| D1
-    P1 -->|JWT token + role| STU & PROF & ADMIN
+**Data stores:** Users & Profiles · Academic Records (courses, grades, enrollments) · Assignments & Submissions · Course Materials · Chat Sessions & Messages
 
-    PROF -->|grade value, type,\nweight, semester| P2[2.0\nRecord Academic\nData]
-    PROF -->|student_id, date,\nhours_present, status| P2
-    P2 <-->|read/write| D2
-    P2 -->|confirmation| PROF
-
-    STU -->|query request| P3[3.0\nView Academic\nStatus]
-    P3 <-->|grades, attendance,\nenrollments| D2
-    P3 -->|GPA, grade list,\nattendance records| STU
-
-    STU -->|file/text submission| P4[4.0\nManage\nAssignments]
-    PROF -->|assignment details| P4
-    P4 <-->|read/write records| D3
-    P4 <-->|file upload/download| STORAGE
-    P4 -->|submission confirmation| STU
-    P4 -->|student submissions| PROF
-
-    PROF -->|material file| P5[5.0\nManage Course\nMaterials]
-    P5 <-->|file storage| STORAGE
-    P5 <-->|metadata| D4
-    P5 -->|material list + URLs| STU
-
-    STU -->|chat message| P6[6.0\nAI Advising\nM.I.A]
-    P6 <-->|student profile:\ngrades, GPA, courses| D2
-    P6 <-->|session history| D5
-    P6 <-->|inference request/response| GROQ
-    P6 -->|AI response| STU
-
-    ADMIN -->|user create/update/delete| P7[7.0\nUser and\nEnrollment Mgmt]
-    P7 <-->|CRUD operations| D1
-    P7 <-->|enrollment records| D2
-    P7 -->|confirmation + reports| ADMIN
-```
+**External entities:** Student, Professor, Admin · Groq API (inference)
