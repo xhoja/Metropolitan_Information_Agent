@@ -2,7 +2,7 @@ import datetime
 from typing import Annotated
 from fastapi import APIRouter, HTTPException, Header
 from db import supabase
-from routers.auth import decode_token
+from routers.auth import require_role
 from pydantic import BaseModel
 from typing import Optional
 from schemas.finance import (
@@ -21,7 +21,7 @@ BEARER_PREFIX = "Bearer "
 
 
 def _get_student_id(token: str) -> str:
-    payload = decode_token(token)
+    payload = require_role(token, "student")
     res = supabase.table("students").select("id").eq("user_id", payload["sub"]).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Student not found")
@@ -29,9 +29,7 @@ def _get_student_id(token: str) -> str:
 
 
 def _require_admin(token: str):
-    payload = decode_token(token)
-    if payload.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    return require_role(token, "admin")
 
 
 def _installment_dates(academic_year: str, count: int) -> list:

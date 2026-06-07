@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from models import UserCreate, UserUpdate
 from db import supabase
-from routers.auth import hash_password, decode_token
+from routers.auth import hash_password, require_role
 import datetime
 
 router = APIRouter()
@@ -22,10 +22,7 @@ class CourseCreate(BaseModel):
     professor_id: Optional[str] = None
 
 def require_admin(token: str):
-    payload = decode_token(token)
-    if payload.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    return payload
+    return require_role(token, "admin")
 
 @router.post("/users")
 def create_user(data: UserCreate, authorization: str = Header(...)):
@@ -133,7 +130,7 @@ def get_all_courses(authorization: str = Header(...)):
         professor_name = ""
         try:
             professor_name = c["professors"]["users"]["name"]
-        except:
+        except (KeyError, TypeError):
             professor_name = ""
         result.append({
             "id": c["id"],
@@ -183,12 +180,12 @@ def get_all_enrollments(authorization: str = Header(...)):
     for e in enrollments:
         try:
             student_name = e["students"]["users"]["name"]
-        except:
+        except (KeyError, TypeError):
             student_name = ""
         try:
             course_title = e["courses"]["title"]
             course_code = e["courses"]["code"]
-        except:
+        except (KeyError, TypeError):
             course_title = ""
             course_code = ""
         result.append({
@@ -219,13 +216,13 @@ def get_all_attendance(authorization: str = Header(...)):
         try:
             student_name = r["students"]["users"]["name"]
             student_email = r["students"]["users"]["email"]
-        except:
+        except (KeyError, TypeError):
             student_name = ""
             student_email = ""
         try:
             course_title = r["courses"]["title"]
             course_code = r["courses"]["code"]
-        except:
+        except (KeyError, TypeError):
             course_title = ""
             course_code = ""
         result.append({
@@ -252,11 +249,11 @@ def get_all_grades(authorization: str = Header(...)):
     for g in grades:
         try:
             student_name = g["students"]["users"]["name"]
-        except:
+        except (KeyError, TypeError):
             student_name = ""
         try:
             course_title = g["courses"]["title"]
-        except:
+        except (KeyError, TypeError):
             course_title = ""
         result.append({
             "id": g["id"],

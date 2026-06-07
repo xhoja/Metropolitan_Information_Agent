@@ -4,6 +4,24 @@
           Tester — supporting backend validation and ensuring correct API behavior  
 
 
+## Week 9 — 2026-06-07 (Final Week)
+
+This was the final week before the presentation. I focused on a backend security and correctness pass — hardening authentication, standardising role enforcement across every router, and fixing data-correctness bugs in the MIA agent so the system is reliable for the demo.
+
+**Authentication hardening.** The JWT signing key was being read with an insecure `"changeme"` fallback, which meant the app would silently run with a guessable secret if the environment variable was missing — anyone could forge a valid token. I made `SECRET_KEY` mandatory: the backend now refuses to start and raises a clear error if it isn't set, closing the token-forgery hole.
+
+**Standardised role guards.** Access control was inconsistent — the admin router checked the role explicitly and returned a clean 403, but the professor, student, and finance routers only did a table lookup, so a wrong-role request leaked a confusing 404 instead of a proper "forbidden". I added a single shared `require_role()` dependency in `auth.py` and wired every protected router through it, so each route now guards the same way and returns a consistent 403. I verified this end-to-end: a student token hitting an admin endpoint returns 403, an admin token hitting a student endpoint returns 403, a missing header returns 422, and a tampered token returns 401.
+
+**Exception handling cleanup.** Replaced 12 bare `except:` blocks across `auth.py`, `admin.py`, and `professor.py` with specific exception types (`jwt.PyJWTError`, `KeyError`/`TypeError`, `ValueError`/`TypeError`). The old blanket catches were silently swallowing unexpected errors, which made bugs hard to trace; now only the expected failures are caught and anything unexpected surfaces.
+
+**MIA agent correctness.** Fixed two real bugs in the AI advisor's data layer. First, the GPA calculation was mapping letter grades (A, B+, …) that don't exist in our system — grades are stored as 0–100 points on the Albanian scale — so the agent reported GPAs that didn't match the dashboards. I rewrote it to use the same points → Albanian 4–10 → GPA conversion the frontend uses, so the agent and the student dashboard now agree. Second, the unauthenticated chat path used a single module-level history list shared across all anonymous users, meaning one anonymous user could see another's messages; I removed the shared global and made that path stateless.
+
+**Preference persistence.** The "MIA remembers your preferences" feature read from the `student_preferences` table but nothing ever wrote to it. I implemented the persistence path — extracting durable preferences a student states during chat and storing them (with de-duplication) — so the feature actually works across sessions.
+
+**Security review.** Reviewed the Supabase key configuration and confirmed the service-tier key lives only in the backend environment and never reaches the frontend, and that the environment file is gitignored. Flagged Row-Level-Security verification as a follow-up for the database owner.
+
+**Tech explored:** JWT signing-key validation and token-forgery risk, FastAPI shared dependencies for role-based access control, specific vs. blanket exception handling in Python, cross-user state leakage from module-level globals, Albanian grading-scale GPA conversion (0–100 points → 4–10 → 0–4 GPA), Supabase service-role keys vs. Row Level Security.
+
 ## Week 5 — 2026-05-11
 
 This week I focused on the student backend — reviewing and refining existing endpoints for correctness and consistency. Tested GPA calculation logic against edge cases, validated assignment submission flow end-to-end, and ensured enrollment checks behave correctly under concurrent requests. Worked closely with the frontend to verify the student dashboard data matches expected API responses.

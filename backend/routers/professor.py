@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import json
 from db import supabase
-from routers.auth import decode_token
+from routers.auth import require_role
 from datetime import datetime as dt
 import uuid
 
@@ -48,7 +48,7 @@ def _session_duration(start: str, end: str) -> float:
         s = dt.strptime(start[:5], "%H:%M")
         e = dt.strptime(end[:5], "%H:%M")
         return max(0.0, (e - s).seconds / 3600)
-    except:
+    except (ValueError, TypeError):
         return 0.0
 
 class AssignmentCreate(BaseModel):
@@ -59,7 +59,7 @@ class AssignmentCreate(BaseModel):
     type: str
 
 def get_professor_id(token: str):
-    payload = decode_token(token)
+    payload = require_role(token, "professor")
     res = supabase.table("professors").select("id").eq("user_id", payload["sub"]).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Professor not found")
@@ -182,7 +182,7 @@ def get_grades(course_id: str, authorization: str = Header(...)):
                 "grade_type": g["grade_type"],
                 "weight": g["weight"],
             })
-        except:
+        except (KeyError, TypeError):
             result.append(g)
     return result
 
@@ -208,7 +208,7 @@ def get_attendance(course_id: str, authorization: str = Header(...)):
                 "hours_present": r.get("hours_present") or 0,
                 "week_number": r.get("week_number"),
             })
-        except:
+        except (KeyError, TypeError):
             result.append(r)
     return result
 
@@ -388,7 +388,7 @@ def get_course_students(course_id: str, authorization: str = Header(...)):
                 "email": e["students"]["users"]["email"],
                 "enrolled_at": e.get("created_at")
             })
-        except:
+        except (KeyError, TypeError):
             continue
     return result
 

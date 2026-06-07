@@ -1,7 +1,7 @@
 from typing import Annotated, List, Optional
 from fastapi import APIRouter, HTTPException, Header, UploadFile, File, Form
 from db import supabase
-from routers.auth import decode_token
+from routers.auth import require_role
 from datetime import datetime, timezone
 import uuid
 import json
@@ -12,7 +12,7 @@ NOT_FOUND_RESPONSE = {404: {"description": "Student not found"}}
 BEARER_PREFIX = "Bearer "
 
 def get_student_id(token: str):
-    payload = decode_token(token)
+    payload = require_role(token, "student")
     res = supabase.table("students").select("id").eq("user_id", payload["sub"]).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Student not found")

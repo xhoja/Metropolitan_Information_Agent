@@ -17,9 +17,6 @@ client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
 )
 
-# Temporary in-memory history for unauthenticated users
-chat_history: list[dict] = []
-
 
 def create_chat_session(student_id: str) -> str:
     res = supabase.table("chat_sessions").insert({"student_id": student_id}).execute()
@@ -55,6 +52,59 @@ def get_session_messages(student_id: str, session_id: str) -> list[dict]:
     return res.data or []
 
 
+def save_student_preference(student_id: str, preference_text: str, category: str = "general", source: str = "chat") -> None:
+    """Persist a student preference, skipping anything already stored verbatim."""
+    text = (preference_text or "").strip()
+    if not text:
+        return
+    try:
+        existing = supabase.table("student_preferences").select("preference_text").eq("student_id", student_id).execute()
+        known = {(p.get("preference_text") or "").strip().lower() for p in (existing.data or [])}
+        if text.lower() in known:
+            return
+        supabase.table("student_preferences").insert({
+            "student_id": student_id,
+            "category": category,
+            "preference_text": text,
+            "source": source,
+        }).execute()
+    except Exception as e:
+        print(f"Failed to save student preference: {e}")
+
+
+def extract_preferences(message: str) -> list[str]:
+    """Pull durable academic preferences/goals out of a student message.
+
+    The extraction prompt is owned jointly with the AI agent owner; the DB
+    persistence (save_student_preference) is the backend's responsibility.
+    """
+    try:
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": (
+                    "You extract durable academic preferences, goals, or constraints a student "
+                    "states about themselves (e.g. 'prefers morning classes', 'wants to specialize "
+                    "in AI', 'aims to graduate early'). Output ONE preference per line with no "
+                    "numbering or commentary. If there are none, output nothing."
+                )},
+                {"role": "user", "content": message},
+            ],
+            temperature=0,
+            max_tokens=200,
+        )
+        raw = completion.choices[0].message.content or ""
+    except Exception as e:
+        print(f"Preference extraction failed: {e}")
+        return []
+    prefs = []
+    for line in raw.splitlines():
+        cleaned = line.strip().lstrip("-•*0123456789. ").strip()
+        if cleaned and cleaned.lower() not in ("none", "n/a"):
+            prefs.append(cleaned)
+    return prefs
+
+
 def extract_student_id(authorization: Optional[str]) -> Optional[str]:
     """Extract student ID from authorization token"""
     if not authorization:
@@ -63,16 +113,11 @@ def extract_student_id(authorization: Optional[str]) -> Optional[str]:
     try:
         token = authorization.replace("Bearer ", "")
         payload = decode_token(token)
-        
         res = supabase.table("students").select("id").eq("user_id", payload["sub"]).execute()
-        
         if res.data:
-            student_id = res.data[0]["id"]
-            return student_id
-        else:
-            pass
-    except Exception as e:
-        print(f"DEBUG: Error extracting student ID: {e}")
+            return res.data[0]["id"]
+    except Exception:
+        return None
     return None
 
 
@@ -127,20 +172,54 @@ def fetch_student_profile(student_id: str) -> Dict[str, Any]:
         return {}
 
 
+def points_to_albanian(value) -> int:
+    """Convert 0-100 points to the Albanian 4-10 scale (mirrors toAlbanian in the dashboards)."""
+    if value is None:
+        return 0
+    if value >= 95:
+        return 10
+    if value >= 85:
+        return 9
+    if value >= 75:
+        return 8
+    if value >= 65:
+        return 7
+    if value >= 55:
+        return 6
+    if value >= 45:
+        return 5
+    return 4  # fail
+
+
+def albanian_to_gpa(value) -> float:
+    """Convert 0-100 points to a 4.0-scale GPA, matching albanianToGPA in the frontend."""
+    g = points_to_albanian(value)
+    if g >= 10:
+        return 4.0
+    if g >= 9:
+        return 3.7
+    if g >= 8:
+        return 3.3
+    if g >= 7:
+        return 3.0
+    if g >= 6:
+        return 2.0
+    if g >= 5:
+        return 1.0
+    return 0.0
+
+
 def calculate_gpa(grades: list) -> float:
-    """Calculate student GPA from grades"""
-    grade_map = {"A": 4.0, "A-": 3.7, "B+": 3.3, "B": 3.0, "B-": 2.7, "C+": 2.3, "C": 2.0, "C-": 1.7, "D": 1.0, "F": 0.0}
-    valid_grades = []
+    """Cumulative GPA from numeric grade points, matching the dashboard/transcript:
+    the unweighted mean of each grade record's albanian_to_gpa value."""
+    values = []
     for g in grades:
-        grade_value = g.get("grade") or g.get("value")
-        if grade_value in grade_map:
-            valid_grades.append(grade_map[grade_value])
-        elif isinstance(grade_value, (int, float)):
-            # If it's already a numeric grade
-            valid_grades.append(float(grade_value))
-    
-    gpa = sum(valid_grades) / len(valid_grades) if valid_grades else 0
-    return gpa
+        v = g.get("grade")
+        if v is None:
+            v = g.get("value")
+        if isinstance(v, (int, float)):
+            values.append(albanian_to_gpa(v))
+    return sum(values) / len(values) if values else 0
 
 
 def calculate_attendance_stats(attendance: list) -> Dict[str, Any]:
@@ -402,17 +481,20 @@ def chat(req: ChatRequest, authorization: Annotated[Optional[str], Header()] = N
         except Exception as e:
             print(f"Failed to save assistant message: {e}")
 
+        # Persist any durable preferences the student stated this turn.
+        try:
+            for pref in extract_preferences(req.message):
+                save_student_preference(student_id, pref)
+        except Exception as e:
+            print(f"Failed to persist preferences: {e}")
+
         return {"response": answer, "session_id": session_id}
 
-    # Fallback when no authorization is provided: keep in-memory history only
-    chat_history.append({"role": "user", "content": req.message})
+    # No authorization: answer statelessly so anonymous users never share history.
     try:
-        answer = call_model(chat_history, student_context)
+        answer = call_model([{"role": "user", "content": req.message}], student_context)
     except Exception as e:
-        chat_history.pop()
         raise HTTPException(status_code=503, detail=f"AI service unavailable: {str(e)}")
-    chat_history[:] = chat_history[-10:]
-    chat_history.append({"role": "assistant", "content": answer})
     return {"response": answer, "session_id": session_id or "temporary"}
 
 

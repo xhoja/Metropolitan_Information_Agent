@@ -5,7 +5,12 @@ import bcrypt
 import jwt, os, datetime
 
 router = APIRouter()
-SECRET_KEY = os.getenv("SECRET_KEY", "changeme")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is required. Set it in backend/.env "
+        "to a strong random value (32+ characters)."
+    )
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
@@ -24,8 +29,16 @@ def create_token(user_id: str, role: str):
 def decode_token(token: str):
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-    except:
+    except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Token invalid")
+
+def require_role(token: str, *roles: str):
+    """Shared role guard: decode the token and ensure the caller holds one of
+    the allowed roles, returning a clean 403 otherwise."""
+    payload = decode_token(token)
+    if payload.get("role") not in roles:
+        raise HTTPException(status_code=403, detail="Forbidden: insufficient role")
+    return payload
 
 @router.post("/login")
 def login(req: LoginRequest):
