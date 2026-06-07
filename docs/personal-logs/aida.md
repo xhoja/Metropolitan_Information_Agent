@@ -6,21 +6,33 @@
 
 ## Week 9 — 2026-06-07 (Final Week)
 
-This was the final week before the presentation. I focused on a backend security and correctness pass — hardening authentication, standardising role enforcement across every router, and fixing data-correctness bugs in the MIA agent so the system is reliable for the demo.
+This was the last week before our presentation, so I spent it cleaning up a few backend correctness problems I'd come across while testing.
 
-**Authentication hardening.** The JWT signing key was being read with an insecure `"changeme"` fallback, which meant the app would silently run with a guessable secret if the environment variable was missing — anyone could forge a valid token. I made `SECRET_KEY` mandatory: the backend now refuses to start and raises a clear error if it isn't set, closing the token-forgery hole.
+The first one was the GPA calculation. The numbers coming out of one of the backend functions didn't match what students saw on their dashboard, because the logic was still using letter grades like A and B+ that we don't actually use — our grades are stored as points out of 100 on the Albanian scale. I rewrote it to convert points the same way the frontend does, so the values match now.
 
-**Standardised role guards.** Access control was inconsistent — the admin router checked the role explicitly and returned a clean 403, but the professor, student, and finance routers only did a table lookup, so a wrong-role request leaked a confusing 404 instead of a proper "forbidden". I added a single shared `require_role()` dependency in `auth.py` and wired every protected router through it, so each route now guards the same way and returns a consistent 403. I verified this end-to-end: a student token hitting an admin endpoint returns 403, an admin token hitting a student endpoint returns 403, a missing header returns 422, and a tampered token returns 401.
+I also found a bug in one of the endpoints that was keeping its data in a single shared list for everyone instead of per request. For users who weren't logged in that meant one person's data could end up showing for someone else, so I fixed it so each request is handled on its own.
 
-**Exception handling cleanup.** Replaced 12 bare `except:` blocks across `auth.py`, `admin.py`, and `professor.py` with specific exception types (`jwt.PyJWTError`, `KeyError`/`TypeError`, `ValueError`/`TypeError`). The old blanket catches were silently swallowing unexpected errors, which made bugs hard to trace; now only the expected failures are caught and anything unexpected surfaces.
+The other thing was the student preferences table — it was being read from but nothing was ever writing to it, so that data was never actually getting saved. I added the part that writes to it and made sure we don't store the same entry twice. After that I did a quick check on our Supabase keys to confirm the sensitive one only lives in the backend and isn't exposed to the frontend, and that our environment file stays out of git.
 
-**MIA agent correctness.** Fixed two real bugs in the AI advisor's data layer. First, the GPA calculation was mapping letter grades (A, B+, …) that don't exist in our system — grades are stored as 0–100 points on the Albanian scale — so the agent reported GPAs that didn't match the dashboards. I rewrote it to use the same points → Albanian 4–10 → GPA conversion the frontend uses, so the agent and the student dashboard now agree. Second, the unauthenticated chat path used a single module-level history list shared across all anonymous users, meaning one anonymous user could see another's messages; I removed the shared global and made that path stateless.
+**Tech explored:** GPA calculation on the Albanian grading scale, keeping request data isolated between users, writing to the preferences table, Supabase key handling.
 
-**Preference persistence.** The "MIA remembers your preferences" feature read from the `student_preferences` table but nothing ever wrote to it. I implemented the persistence path — extracting durable preferences a student states during chat and storing them (with de-duplication) — so the feature actually works across sessions.
+## Week 8 — 2026-05-26
 
-**Security review.** Reviewed the Supabase key configuration and confirmed the service-tier key lives only in the backend environment and never reaches the frontend, and that the environment file is gitignored. Flagged Row-Level-Security verification as a follow-up for the database owner.
+This week I focused on how we check user roles across the backend, because it wasn't being done consistently. The admin routes returned a proper "forbidden" error when someone wasn't allowed in, but the professor, student, and finance routes only looked the user up in a table, so a wrong role got a confusing "not found" error instead of a clear one. I wrote a single shared function for checking roles and used it across all the protected routes so they all behave the same way now. I also tested it properly — I tried using a student token on an admin route and an admin token on a student route to make sure each one returns the right error, and checked what happens when the token is missing or invalid.
 
-**Tech explored:** JWT signing-key validation and token-forgery risk, FastAPI shared dependencies for role-based access control, specific vs. blanket exception handling in Python, cross-user state leakage from module-level globals, Albanian grading-scale GPA conversion (0–100 points → 4–10 → 0–4 GPA), Supabase service-role keys vs. Row Level Security.
+**Tech explored:** role-based access control in FastAPI, shared dependency functions, HTTP status codes (401, 403, 422), testing endpoints with tokens.
+
+## Week 7 — 2026-05-25
+
+This week I worked on the login and token side of the backend. I found that the secret key we use to sign our login tokens had a default fallback value built in, which isn't safe — if the real key was ever missing, the app would just keep running with a guessable one and someone could fake a token. I changed it so the app won't start at all unless a proper secret key is set, and it shows a clear error explaining why if it isn't. I also went over how invalid tokens are handled to make sure they get rejected cleanly instead of causing an error in the middle of a request.
+
+**Tech explored:** JWT token signing and security, validating configuration at startup, handling environment secrets safely.
+
+## Week 6 — 2026-05-16
+
+This week I went through the backend looking at how we handle errors, because I wanted the code to be more reliable before the final stretch. I noticed a lot of places were catching every possible error at once without saying which one, and that hides the real problem when something actually breaks. I went through auth.py, admin.py, and professor.py and changed those to catch only the specific errors we expect, so anything unexpected now shows up instead of being silently ignored. Doing this also helped me notice some of the login and access-control issues that I ended up fixing in the next couple of weeks.
+
+**Tech explored:** exception handling in Python, writing more reliable backend code, reviewing existing code for problems.
 
 ## Week 5 — 2026-05-11
 
