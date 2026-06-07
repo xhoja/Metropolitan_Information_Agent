@@ -2,6 +2,32 @@
 
 **Role:** Frontend Development — React architecture, admin and professor dashboards, routing
 
+## Week 9 — 2026-06-07 (Final Week)
+
+This was the final week before the project presentation. The focus was on debugging, grading-system correctness, attendance enforcement, and reviewing the overall system to ensure it is presentation-ready.
+
+**Grading system overhaul.** The existing grade storage used 0–100 points, but the application was incorrectly displaying raw percentages as Albanian grades. I introduced a proper conversion pipeline: professors continue entering 0–100 points; the frontend converts to the Albanian 4–10 scale using a step function (95–100 → 10, 85–94 → 9, 75–84 → 8, 65–74 → 7, 55–64 → 6, 45–54 → 5, <45 → 4 fail), then derives a 0–4 GPA from that (5 → 1.0 D, 6 → 2.0 C, 7 → 3.0 B, 8 → 3.3 B+, 9 → 3.7 A−, 10 → 4.0 A). All grade display components — student Grades & GPA tab, transcript, course detail table, assignment badges, admin grade list — now show Points/100, Albanian/10, and GPA side by side. A bug where pre-converted Albanian averages were incorrectly re-run through `toAlbanian()` (causing 9.3 to map to fail since 9.3 < 45) was fixed by separating `gradeColor(points)` from `albColor(alb)`.
+
+**Semester logic.** Albanian universities run two semesters only — Spring (Jan–Jun) and Autumn (Jul–Dec). The codebase previously had a three-way Summer/Fall split. Fixed `getCurrentSemester()` in both the professor dashboard and the two backend endpoints (`professor.py`, `student.py`). Existing DB records with "Summer 2026" or "Fall YYYY" are normalised on the frontend via `normalizeSemester()` so the transcript groups and sorts them correctly without a data migration.
+
+**Attendance failure enforcement.** Added a 75% attendance threshold rule: any student below that threshold has failed the class and must retake it. On the student side, course tabs in the attendance view turn red with a warning symbol, and a prominent red banner appears inside the failed course card explaining the situation. On the professor side, a failure panel appears above the attendance sheet listing every student below 75% with their rate. The admin attendance tab was fully redesigned — now includes a 4-card stat summary (Present / Absent / Late / At Risk), a failure panel showing all failing students across all courses with a progress-bar rate column, and a Student Overview table with passing/failed badges sorted alphabetically by name then course. The backend `/admin/attendance` endpoint was extended to return `student_id`, `course_id`, `week_number`, `hours_present`, `student_email`, and `course_code` since these were missing and blocked the rate calculation entirely.
+
+**Submissions modal cleanup.** Removed the grading UI (Component dropdown, Grade input, Save button) from the professor's submissions view — professors grade exclusively from the Grades tab. The modal now shows Student / Status / Files only, with a simple submitted-count footer.
+
+**Report review.** Reviewed the full project report and the comprehensive system documentation ahead of the presentation. Verified feature completeness across all modules: student dashboard (grades, GPA, attendance, assignments, transcript, finance, MIA chat), professor dashboard (courses, roster, materials, assignments, grades, attendance), admin dashboard (users, students, professors, courses, enrollments, attendance, grades, finance, role assignment).
+
+**Tech explored:** Albanian academic grading system (4–10 scale, 45-point pass threshold, 0–4 GPA mapping), timezone-aware datetime comparison in Python (offset-naive vs offset-aware), React state separation to avoid cross-purpose contamination, Supabase Storage public bucket uploads, FastAPI multipart/form-data with `List[UploadFile]`, attendance rate calculation from hours-present aggregation.
+
+## Week 8 — 2026-05-26
+
+This week I reworked the grade recording flow end-to-end, implementing a component-based grading system, and built out the scholarship feature in the finance module. On the grading side, the old flow allowed professors to enter a free-text grade type and weight per entry, which meant nothing was consistent. I replaced this with a grade components manager: professors now define named components (e.g. Final Exam 60%, Midterm 15%) per course before any grades can be recorded. A new `grade_components` table stores these, and the record-grade form replaced the free-text fields with a dropdown that pulls from those predefined components. Semester is now auto-determined server-side based on the current date so professors never enter it manually. I also added a delete endpoint for grades and locked the edit/delete actions for past-semester grades on the backend. A student/component filter was added to the grades table view.
+
+For the finance module, I implemented scholarship support. Admin can apply a scholarship amount and optional reason to any student fee record. The backend computes the net payable, updates `agreed_amount`, and redistributes the remaining balance across unpaid installments. The admin student detail view gained a scholarship panel and a revised four-card summary.
+
+On the student dashboard, I redesigned the attendance tab with course selector tabs, status filter pills, and per-session colour-coded week indicators.
+
+**Tech explored:** Supabase check constraint debugging, FastAPI route ordering with overlapping path patterns, React IIFE rendering for derived state inside JSX, scholarship arithmetic without additional DB columns.
+
 ## Week 7 — 2026-05-25
 
 This week I worked on data integrity, grade editing, and redesigning the student grades and transcript views. I fixed a silent overwrite bug in attendance recording — the backend now returns 409 if a week is already recorded, and the Save Session button is disabled on the frontend until the week is cleared. I added a `PUT /professor/grades/{grade_id}` endpoint and wired up an inline edit mode on the professor dashboard, where clicking Edit populates the grade form with the existing values while locking the student and course fields. On the student side, I replaced the flat grades table with a two-level course-list drilldown and rebuilt the transcript tab to group grades by semester with per-semester and cumulative averages.
