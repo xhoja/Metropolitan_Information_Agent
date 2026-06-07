@@ -4,7 +4,7 @@
 
 ---
 
-## Week 9 - 2026-06-07
+## Week 9 - 2026-06-07 (Final Week)
 
 **What I worked on:**
 Completed the final frontend polish for the student dashboard before the project presentation. Reviewed the Grades & GPA, Transcript, Attendance, Assignments, Finance, and M.I.A Chat tabs to make sure the user flow was clear and consistent. Updated student-facing grade displays to support the final grading model, showing points, Albanian grade scale, and GPA values more clearly. Improved attendance warning states for students below the required threshold, checked responsive behavior across the dashboard, and helped verify that the final system documentation matched the implemented student portal.
