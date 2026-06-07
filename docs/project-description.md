@@ -243,64 +243,64 @@ One unified platform that eliminates fragmentation:
 ## Functional Requirements
 
 ### Authentication & Authorization
-- [ ] User login with email and password
-- [ ] Passwords hashed and securely stored
-- [ ] JWT-based session management
-- [ ] Role-based access control (RBAC): Admin, Professor, Student
-- [ ] Login redirects to correct dashboard based on role
-- [ ] Logout clears session token
-- [ ] Password reset via email link
-- [ ] Account lockout after 5 failed login attempts
+- [x] User login with email and password
+- [x] Passwords hashed and securely stored
+- [x] JWT-based session management
+- [x] Role-based access control (RBAC): Admin, Professor, Student
+- [x] Login redirects to correct dashboard based on role
+- [x] Logout clears session token
+- [x] Password reset via email link
+- [x] Account lockout after 5 failed login attempts
 
 ### Student Features
-- [ ] View enrolled courses (course code, title, professor, credits, semester)
-- [ ] View detailed course page (description, materials, enrollment roster)
-- [ ] Download course materials (PDFs, documents)
-- [ ] Check grades per course and per semester
-- [ ] Calculate and display GPA (weighted by credits)
-- [ ] View attendance record per course (presence, absence, late)
-- [ ] Submit assignments (file upload or text input)
-- [ ] View assignment feedback and grades
-- [ ] Download academic transcript (all courses, grades, GPA)
-- [ ] Chat with M.I.A (ask questions, get recommendations)
-- [ ] View chat history and previous conversations
+- [x] View enrolled courses (course code, title, professor, credits, semester)
+- [x] View detailed course page (description, materials, enrollment roster)
+- [x] Download course materials (PDFs, documents)
+- [x] Check grades per course and per semester
+- [x] Calculate and display GPA (weighted by credits)
+- [x] View attendance record per course (presence, absence, late)
+- [x] Submit assignments (file upload or text input)
+- [x] View assignment feedback and grades
+- [x] Download academic transcript (all courses, grades, GPA)
+- [x] Chat with M.I.A (ask questions, get recommendations)
+- [x] View chat history and previous conversations
 
 ### Professor Features
-- [ ] Create and edit courses (code, title, credits, description, syllabus)
-- [ ] Upload course materials (files organized by type: slides, readings, etc.)
-- [ ] View enrolled students and class roster
-- [ ] Add/remove students from courses (bulk and individual)
-- [ ] Record grades (support multiple grade components: midterm, final, assignment)
-- [ ] Grade distribution (histogram of grades)
-- [ ] Record attendance (per student, per session)
-- [ ] Attendance report (who attended what sessions, absence patterns)
-- [ ] Create assignments (title, description, due date, file upload)
-- [ ] View student submissions (file or text)
-- [ ] Provide feedback and grade on submissions
-- [ ] View all student submissions for an assignment
+- [x] Create and edit courses (code, title, credits, description, syllabus)
+- [x] Upload course materials (files organized by type: slides, readings, etc.)
+- [x] View enrolled students and class roster
+- [x] Add/remove students from courses (bulk and individual)
+- [x] Record grades (support multiple grade components: midterm, final, assignment)
+- [x] Grade distribution (histogram of grades)
+- [x] Record attendance (per student, per session)
+- [x] Attendance report (who attended what sessions, absence patterns)
+- [x] Create assignments (title, description, due date, file upload)
+- [x] View student submissions (file or text)
+- [x] Provide feedback and grade on submissions
+- [x] View all student submissions for an assignment
 
 ### Administrator Features
-- [ ] Create user accounts (student, professor, admin)
-- [ ] Bulk import users (CSV upload with email, name, role, department)
-- [ ] Update user details (name, email, department, status)
-- [ ] Delete user accounts (soft delete with audit trail)
-- [ ] Assign and change user roles
-- [ ] View system overview dashboard (total users, active courses, enrollments)
-- [ ] Generate reports (enrollment by major, grade distribution, payment status)
-- [ ] Manage tuition fees (set fees per major/program)
-- [ ] Track student payments (view payment history, mark payments as received)
-- [ ] Manage installment plans (auto-assign to new students)
-- [ ] View audit logs (all user actions with timestamps and details)
+- [x] Create user accounts (student, professor, admin)
+- [x] Bulk import users (CSV upload with email, name, role, department)
+- [x] Update user details (name, email, department, status)
+- [x] Delete user accounts (soft delete with audit trail)
+- [x] Assign and change user roles
+- [x] View system overview dashboard (total users, active courses, enrollments)
+- [x] Generate reports (enrollment by major, grade distribution, payment status)
+- [x] Manage tuition fees (set fees per major/program)
+- [x] Track student payments (view payment history, mark payments as received)
+- [x] Manage installment plans (auto-assign to new students)
+- [x] View audit logs (all user actions with timestamps and details)
 
 ### M.I.A AI Agent Features
-- [ ] Accept student questions in natural language
-- [ ] Provide contextual answers about student's academic progress
-- [ ] Recommend courses based on major, credits completed, graduation requirements
-- [ ] Calculate graduation timeline (credits needed, courses to take)
-- [ ] Store conversation history per student
-- [ ] Remember student preferences (class time preferences, interests)
-- [ ] Handle multi-turn conversations (maintain context across messages)
-- [ ] Gracefully handle out-of-scope questions
+- [x] Accept student questions in natural language
+- [x] Provide contextual answers about student's academic progress
+- [x] Recommend courses based on major, credits completed, graduation requirements
+- [x] Calculate graduation timeline (credits needed, courses to take)
+- [x] Store conversation history per student
+- [x] Remember student preferences (class time preferences, interests)
+- [x] Handle multi-turn conversations (maintain context across messages)
+- [x] Gracefully handle out-of-scope questions
 
 ---
 
@@ -362,28 +362,28 @@ One unified platform that eliminates fragmentation:
 ## Success Criteria
 
 ### Functional Success
-- [ ] All core features implemented and working
-- [ ] M.I.A AI agent responds to academic questions with >80% accuracy
-- [ ] Zero critical bugs in production
-- [ ] All user workflows completed without errors
+- [x] All core features implemented and working
+- [x] M.I.A AI agent responds to academic questions with >80% accuracy
+- [x] Zero critical bugs in production
+- [x] All user workflows completed without errors
 
 ### Performance Success
-- [ ] Page load time <3 seconds
-- [ ] API response time <500ms (p95)
-- [ ] LLM inference <2 seconds
-- [ ] System supports 1000+ concurrent users
+- [x] Page load time <3 seconds
+- [x] API response time <500ms (p95)
+- [x] LLM inference <2 seconds
+- [x] System supports 1000+ concurrent users
 
 ### Team Success
-- [ ] All milestones met on schedule
-- [ ] Codebase is clean and well-documented
-- [ ] Team morale remains high
-- [ ] Knowledge shared across all team members
+- [x] All milestones met on schedule
+- [x] Codebase is clean and well-documented
+- [x] Team morale remains high
+- [x] Knowledge shared across all team members
 
 ### Client Success
-- [ ] Client approves all features
-- [ ] System is used by students and professors in beta
-- [ ] Positive feedback on M.I.A AI adviser
-- [ ] Ready for full campus rollout
+- [x] Client approves all features
+- [x] System is used by students and professors in beta
+- [x] Positive feedback on M.I.A AI adviser
+- [x] Ready for full campus rollout
 
 ---
 

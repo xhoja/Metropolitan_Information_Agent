@@ -623,10 +623,9 @@ By validating technologies early, we **eliminated major technical risks:**
 
 **Sprint Structure:**
 - **Sprint Duration:** 2 weeks
-- **Sprint Planning:** Monday 10 AM
-- **Daily Standup:** 15 min (async via Slack if busy)
-- **Sprint Review:** Friday with working demo
-- **Retrospective:** Friday post-demo (continuous improvement)
+- **Meetings:** Scheduled flexibly based on team availability — no fixed day or time
+- **Sprint Review:** Working demo per sprint
+- **Retrospective:** Continuous improvement after each sprint
 
 ### Definition of Done (DoD)
 
@@ -648,16 +647,6 @@ Work items are "ready" for development when:
 -  UI/UX design approved
 -  API contracts defined
 -  Database schema documented
-
-### Quality Standards
-
-| Metric | Target |
-|--------|--------|
-| Code Coverage | >80% |
-| API Response Time (p95) | <500ms |
-| Page Load Time | <3 seconds |
-| Uptime | 99.5% |
-| Bug Escape Rate | <1 critical bug/100 features |
 
 ---
 
@@ -720,10 +709,6 @@ Work items are "ready" for development when:
 │ │            • Monitor system health                                 │
 │ │            • Support faculty & students                            │
 │ │                                                                     │
-│ └─ Post-Launch: Support & Phase 2 Planning                           │
-│                6 months support commitment                           │
-│                Gather feedback for enhancements                      │
-│                                                                       │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -736,8 +721,8 @@ Work items are "ready" for development when:
 | 2026-05-10 | Sprint 1 Done | Auth working, core API endpoints | Aida, Parashqevi |
 | 2026-05-24 | Sprint 2 Done | Academic features, professor dashboard | Aida, Parashqevi, Xhoi |
 | 2026-06-07 | Sprint 3 Done | Student portal, M.I.A chat, assignments | All |
-| 2026-06-21 | Testing Done | <1% critical bugs, full documentation | Parashqevi, Team |
-| 2026-06-28 | Go Live | Production deployment, monitoring | All |
+| 2026-06-08 | Project Submitted | Full system submitted for academic evaluation | All |
+
 
 ---
 
@@ -752,34 +737,6 @@ Work items are "ready" for development when:
 -  Admins manage users and view reports
 -  M.I.A answers student questions with >80% accuracy
 -  Zero data integrity issues (grades match source of truth)
-
-### Performance Success
-
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Page Load Time | <3 sec | Browser DevTools |
-| API Response Time (p95) | <500ms | APM monitoring |
-| LLM Inference Time | <2 sec | Chat latency |
-| System Uptime | 99.5% | Monitoring dashboard |
-| Concurrent Users | 1000+ | Load testing |
-
-### User Adoption Success
-
-| Metric | Target | Timeline |
-|--------|--------|----------|
-| Student Portal Usage | >80% | 3 months post-launch |
-| Professor Grade Recording | >90% use system | Immediate |
-| Administrator Engagement | 100% | Day 1 |
-| Student Satisfaction (M.I.A) | >4.0/5.0 | 1 month post-launch |
-
-### Business Success
-
-| Metric | Impact | Measurement |
-|--------|--------|-------------|
-| Registrar Time Savings | 50% reduction | Compare pre/post hours |
-| Grade Recording Time | From 30 min → 5 min/class | Time study |
-| Student Information Access | 24h → instant | Self-service adoption |
-| Fee Collection Rate | +5-10% improvement | Financial report |
 
 ---
 
@@ -943,6 +900,6 @@ For questions about the M.I.A project:
 
 ---
 
-*Document prepared: June 3, 2026*
-*Last Updated: June 3, 2026*
+*Document prepared: April 2026*
+*Last Updated: June 2026*
 *Status: Ready for presentation and stakeholder review*
