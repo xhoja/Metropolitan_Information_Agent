@@ -39,12 +39,15 @@ The system covers every aspect of university operations, including a finance mod
 
 ### Administrator Dashboard
 - Create and manage all user accounts (students and professors)
-- Assign and update user roles across the system
+- Assign and update user roles across the system — filter users by role (All / Admin / Professor / Student)
 - Full system oversight — access to all records, courses, and activity
-- **Finance management** *(beyond original scope)* — configure tuition fees per major, auto-assign fee records and installment plans to students, record payments and track settlement status
+- Grades tab — view grade entries with component type and weight columns; Spring/Autumn semesters only (Albanian academic calendar)
+- Attendance tab — search students by name in both overview and per-session log views
+- **Finance management** *(beyond original scope)* — configure tuition fees per major, auto-assign fee records and installment plans on student creation, pre-fill fee assignment from matching major fee, edit total fee with automatic installment recalculation, record payments and track settlement status
 
 ### Professor Dashboard
 - Upload and manage courses and course materials
+- Archive and unarchive courses — all data preserved; archived courses hidden from dropdowns and shown in a dimmed section
 - Define grade components and weights per course before recording grades
 - Record and update student grades against defined components
 - Track and manage student attendance with per-session records
@@ -53,7 +56,7 @@ The system covers every aspect of university operations, including a finance mod
 
 ### Student Dashboard
 - View current courses and enrolled subjects
-- Check grades and cumulative GPA in real time
+- Check grades and cumulative GPA in real time — grades scale 4–10 (pass > 4), GPA scale 0–4 (Albanian academic system)
 - View attendance records per course
 - Access and download academic transcript
 - View, submit, and track assignments and projects
