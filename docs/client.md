@@ -4,37 +4,52 @@
 
 | Field | Details |
 |-------|---------|
-| **Organization Name** | Metropolitan University of Tirana (Metropolitan Universitet i Tiranës) |
+| **Organization Name** | University Metropolitan Tirana (Universiteti Metropolitan Tirana) |
 | **Type** | Private Higher Education Institution |
-| **Location** | Tirana, Albania |
-| **Website** | https://www.umt.edu.al |
-| **Founded** | 2002 |
-| **Primary Contact** | info@umt.edu.al |
+| **Location** | Rruga "Sotir Kolea", Qyteti Studenti, Tirana, Albania |
+| **Website** | https://umt.edu.al |
+| **Founded** | 2010 |
+| **Information Office** | +355 69 60 09 938 |
+| **Academic Secretariat** | +355 69 747 1881 |
+| **Admissions Office** | +355 69 25 91 493 |
+| **Finance Office** | +355 69 60 70 111 |
+| **Primary Email** | info@umt.edu.al |
+| **Admissions Email** | admissions@umt.edu.al |
 
 ---
 
 ## Organization Overview
 
-Metropolitan University of Tirana is a leading private higher education institution in Albania offering undergraduate and postgraduate programmes across multiple academic disciplines. The university serves approximately **5,000+ students** and employs **300+ faculty members** across diverse departments including Engineering, Business, Law, Medicine, Arts, and Sciences.
+University Metropolitan Tirana (UMT) is a private higher education institution in Albania founded in 2010. It offers bachelor, master, and doctoral programmes across three faculties. UMT holds an **"Excellent"** accreditation rating from the British Quality Assurance Agency (QAA) for five consecutive years, alongside institutional accreditation from the Albanian Quality Assurance Agency in Higher Education. It is the **first university in Albania** to offer a PhD programme in Artificial Intelligence and Intelligent Systems.
 
 ### Academic Structure
 
-| Division | Departments | Approx. Students |
-|----------|------------|------------------|
-| **School of Engineering** | Computer Science, Civil Engineering, Electrical Engineering, Architecture | 1,200 |
-| **School of Business** | Management, Accounting, Finance, Marketing | 1,500 |
-| **School of Law & Social Sciences** | Law, International Relations, Social Work | 800 |
-| **School of Medicine & Health Sciences** | Medicine, Nursing, Public Health | 600 |
-| **School of Arts & Sciences** | Biology, Chemistry, Philosophy, Languages | 700 |
-| **Graduate Programs** | MBA, MSc Programs | 200 |
+| Faculty | Key Programmes |
+|---------|---------------|
+| **Faculty of Computer Science and IT** | BSc: Computer Engineering, Software Engineering, Electrical Engineering (5 profiles), Artificial Intelligence; MSc: Informatics Engineering, Software Engineering, Electrical Engineering, AI (Data Science & Cybersecurity profiles); 2-year professional programme in Software Design & Development |
+| **Faculty of Engineering and Architecture** | Engineering and Architecture programmes (bachelor and master level) |
+| **Faculty of Economics** | Economics and business programmes (bachelor and master level) |
+| **Doctoral School** | PhD in Artificial Intelligence and Intelligent Systems (first in Albania) |
+
+### Institutional Highlights
+
+| Metric | Value |
+|--------|-------|
+| **Accreditation** | QAA "Excellent" — 5 consecutive years |
+| **Erasmus+ Partners** | 60+ institutions across 15+ countries |
+| **International Student Exchanges** | 300+ |
+| **Specialized Laboratories** | 11 facilities |
+| **Campus Buildings** | 3 (all in Qyteti Studenti, Tirana) |
 
 ### Current Operations
 
 **Strengths:**
-- Modern campus with computer labs and facilities
-- Motivated student body with diverse academic interests
-- Faculty committed to teaching excellence
-- Growing reputation in the region
+- QAA "Excellent" accreditation — recognized quality standard
+- 11 specialized laboratories with modern infrastructure
+- 60+ Erasmus+ partnerships enabling international mobility
+- Pioneer in AI education in Albania (first PhD in AI & Intelligent Systems)
+- Research centre (Metroresearch) and startup incubator (Metropolitan Incubator / Start-Up City)
+- Three campus buildings in Qyteti Studenti, Tirana
 
 **Challenges:**
 - Fragmented academic management systems (multiple disconnected tools)
@@ -153,10 +168,11 @@ Metropolitan University seeks a **unified, modern, web-based platform** that con
 ### Primary Contact
 | Role | Name | Email | Phone | Availability |
 |------|------|-------|-------|--------------|
-| **Project Sponsor** | Rector/Vice Rector | TBD | TBD | Bi-weekly review meetings |
-| **Registrar** | Academic Operations | registrar@umt.edu.al | TBD | Weekly check-ins |
-| **Technical Lead** | IT Director | IT@umt.edu.al | TBD | As needed |
-| **Finance Officer** | Finance Department | finance@umt.edu.al | TBD | Financial module discussions |
+| **Project Sponsor** | Rector / Vice Rector | TBD | TBD | Bi-weekly review meetings |
+| **Academic Secretariat** | TBD | TBD | +355 69 747 1881 | Weekly check-ins |
+| **Admissions Office** | TBD | admissions@umt.edu.al | +355 69 25 91 493 | As needed |
+| **Finance Office** | TBD | TBD | +355 69 60 70 111 | Financial module discussions |
+| **Information Office** | TBD | info@umt.edu.al | +355 69 60 09 938 | General queries |
 
 ### Communication Plan
 
@@ -234,7 +250,7 @@ Metropolitan University seeks a **unified, modern, web-based platform** that con
 | **Budget** | Fixed budget; cannot expand significantly; emphasize value over bells & whistles |
 | **Data Privacy** | Must comply with Albanian data protection laws; student data is sensitive |
 | **Language** | Support Albanian as primary language (English as secondary) |
-| **Scalability** | Must support 5,000 current students + 30% growth (6,500) over 3 years |
+| **Scalability** | Must support full student body + 30% projected growth over 3 years |
 | **Integration** | Must not disrupt existing systems during transition |
 | **Training** | Limited IT literacy among some faculty; system must be intuitive |
 
@@ -309,4 +325,4 @@ Metropolitan University seeks a **unified, modern, web-based platform** that con
 
 ---
 
-*Last updated: 2026-06-03*
+*Last updated: 2026-06-08*
