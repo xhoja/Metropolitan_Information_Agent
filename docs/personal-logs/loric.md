@@ -4,6 +4,25 @@
 
 ---
 
+
+## Week 9 — 2026-06-07
+
+I add a feature to the chatbox so now it can say ro the student if he failed in a course due to an attendance rate lower than 75%.
+
+---
+
+## Week 8 — 2026-06-01
+
+This week i finish the documentatio of the chatbox, and test it with the last update of the project
+
+---
+
+## Week 7 — 2026-05-22
+
+This week i review the features of the chatbox, test message history with the last update of the project and start the ducumentation.
+
+---
+
 ## Week 6 — 2026-05-06
 
 I update the chatbox using the supabase project of the group, now the messages exchanged between the student and the chatbox are saved in the messages table of the database.
