@@ -40,11 +40,59 @@ def create_user(data: UserCreate, authorization: str = Header(...)):
     }).execute()
     user = user_res.data[0]
     if data.role == "student":
-        supabase.table("students").insert({
+        student_res = supabase.table("students").insert({
             "user_id": user["id"],
             "major": data.major,
             "enrolled_year": datetime.datetime.now().year
         }).execute()
+        # Auto-assign major fee if one exists for this major + current academic year
+        if data.major and student_res.data:
+            student_id = student_res.data[0]["id"]
+            now = datetime.datetime.now()
+            acad_year = f"{now.year - 1}-{now.year}" if now.month < 9 else f"{now.year}-{now.year + 1}"
+            mf_rows = supabase.table("major_fees").select("*").eq("major", data.major).eq("academic_year", acad_year).execute().data
+            if mf_rows:
+                mf = mf_rows[0]
+                sf = supabase.table("student_fees").insert({
+                    "student_id": student_id,
+                    "major": data.major,
+                    "academic_year": acad_year,
+                    "agreed_amount": mf["annual_fee"],
+                    "paid_amount": 0,
+                    "status": "pending",
+                }).execute().data[0]
+                count = mf["installment_count"] or 2
+                # installment due dates: Nov→Mar (2) or Nov,Jan,Mar,May (4)
+                start = int(acad_year.split("-")[0])
+                end = start + 1
+                if count == 2:
+                    due_dates = [
+                        datetime.date(start, 11, 1).isoformat(),
+                        datetime.date(end, 3, 1).isoformat(),
+                    ]
+                elif count == 4:
+                    due_dates = [
+                        datetime.date(start, 11, 1).isoformat(),
+                        datetime.date(end, 1, 1).isoformat(),
+                        datetime.date(end, 3, 1).isoformat(),
+                        datetime.date(end, 5, 1).isoformat(),
+                    ]
+                else:
+                    base = [11, 1, 3, 5, 7, 9]
+                    due_dates = [
+                        datetime.date(start if base[i % len(base)] >= 11 else end, base[i % len(base)], 1).isoformat()
+                        for i in range(count)
+                    ]
+                ordinals = ["1st", "2nd", "3rd", "4th", "5th", "6th"]
+                amount_per = round(float(mf["annual_fee"]) / count, 2)
+                for i, due in enumerate(due_dates):
+                    supabase.table("installments").insert({
+                        "student_fee_id": sf["id"],
+                        "description": f"{ordinals[i]} Installment",
+                        "amount": amount_per,
+                        "due_date": due,
+                        "paid": False,
+                    }).execute()
     elif data.role == "professor":
         supabase.table("professors").insert({
             "user_id": user["id"],
@@ -244,7 +292,7 @@ def get_all_attendance(authorization: str = Header(...)):
 def get_all_grades(authorization: str = Header(...)):
     token = authorization.replace("Bearer ", "")
     require_admin(token)
-    grades = supabase.table("grades").select("id, value, semester, students(user_id, users(name)), courses(title)").execute().data
+    grades = supabase.table("grades").select("id, value, semester, grade_type, weight, students(user_id, users(name)), courses(title)").execute().data
     result = []
     for g in grades:
         try:
@@ -260,6 +308,8 @@ def get_all_grades(authorization: str = Header(...)):
             "student_name": student_name,
             "course_title": course_title,
             "value": g["value"],
-            "semester": g["semester"]
+            "semester": g["semester"],
+            "grade_type": g.get("grade_type") or "",
+            "weight": g.get("weight")
         })
     return result

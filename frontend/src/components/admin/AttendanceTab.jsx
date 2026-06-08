@@ -153,15 +153,23 @@ export default function AttendanceTab() {
             </div>
           )}
 
-          {/* View toggle */}
-          <div className="flex gap-2 mb-6">
-            {[['overview', 'Student Overview'], ['sessions', 'Session Log']].map(([v, label]) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition border ${view === v ? 'bg-blue-500/20 border-blue-500/50 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'}`}
-              >{label}</button>
-            ))}
+          {/* View toggle + search */}
+          <div className="flex flex-wrap items-center gap-3 mb-6">
+            <div className="flex gap-2">
+              {[['overview', 'Student Overview'], ['sessions', 'Session Log']].map(([v, label]) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition border ${view === v ? 'bg-blue-500/20 border-blue-500/50 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'}`}
+                >{label}</button>
+              ))}
+            </div>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by student…"
+              className="input-base w-full md:w-64"
+            />
           </div>
 
           {view === 'overview' ? (
@@ -176,10 +184,10 @@ export default function AttendanceTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {studentRates.length === 0 ? (
-                    <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500">No records yet.</td></tr>
-                  ) : studentRates.map((s, i) => (
-                    <tr key={i} className={`hover:bg-slate-950/40 transition-colors ${i < studentRates.length - 1 ? 'border-b border-slate-800/60' : ''}`}>
+                  {studentRates.filter(s => !search || s.student.toLowerCase().includes(search.toLowerCase())).length === 0 ? (
+                    <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500">No records found.</td></tr>
+                  ) : studentRates.filter(s => !search || s.student.toLowerCase().includes(search.toLowerCase())).map((s, i, arr) => (
+                    <tr key={i} className={`hover:bg-slate-950/40 transition-colors ${i < arr.length - 1 ? 'border-b border-slate-800/60' : ''}`}>
                       <td className="px-6 py-4">
                         <p className="text-white font-medium">{s.student}</p>
                         <p className="text-slate-500 text-xs">{s.email}</p>
@@ -204,12 +212,6 @@ export default function AttendanceTab() {
             /* Session log */
             <>
               <div className="flex flex-wrap gap-3 mb-5">
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search by student or course…"
-                  className="input-base w-full md:w-72"
-                />
                 <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-base w-auto">
                   <option value="">All statuses</option>
                   <option value="present">Present</option>

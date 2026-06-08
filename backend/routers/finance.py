@@ -275,6 +275,36 @@ def get_student_fee_detail(student_fee_id: str, authorization: str = Header(...)
     return {"fee": fee[0], "installments": installments, "transactions": transactions}
 
 
+@admin_router.put("/student-fees/{student_fee_id}")
+def update_student_fee(student_fee_id: str, data: StudentFeeCreate, authorization: str = Header(...)):
+    """Update the base agreed_amount on a student fee and recalculate unpaid installments."""
+    _require_admin(authorization.replace(BEARER_PREFIX, ""))
+    sf = supabase.table("student_fees").select("*").eq("id", student_fee_id).execute().data
+    if not sf:
+        raise HTTPException(status_code=404, detail="Fee record not found")
+    sf = sf[0]
+    new_amount = round(float(data.agreed_amount), 2)
+    if new_amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+    scholarship = float(sf.get("scholarship_amount") or 0)
+    net = round(new_amount - scholarship, 2)
+    if net <= 0:
+        raise HTTPException(status_code=400, detail="Net fee after scholarship must be positive")
+    supabase.table("student_fees").update({
+        "agreed_amount": net,
+    }).eq("id", student_fee_id).execute()
+    # recalculate unpaid installments proportionally
+    paid_total = float(sf["paid_amount"])
+    installments = supabase.table("installments").select("*").eq("student_fee_id", student_fee_id).order("due_date").execute().data
+    unpaid = [i for i in installments if not i["paid"]]
+    if unpaid:
+        remaining = max(0.0, net - paid_total)
+        per = round(remaining / len(unpaid), 2)
+        for inst in unpaid:
+            supabase.table("installments").update({"amount": per}).eq("id", inst["id"]).execute()
+    return {"agreed_amount": net, "scholarship_amount": scholarship}
+
+
 @admin_router.post("/student-fees/{student_fee_id}/generate-installments")
 def generate_installments(student_fee_id: str, authorization: str = Header(...)):
     _require_admin(authorization.replace(BEARER_PREFIX, ""))

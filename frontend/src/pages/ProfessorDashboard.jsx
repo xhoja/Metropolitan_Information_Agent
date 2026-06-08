@@ -33,6 +33,8 @@ export default function ProfessorDashboard() {
   const [courses, setCourses]           = useState([])
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState('')
+  const [showArchived, setShowArchived] = useState(false)
+  const [archiving, setArchiving]       = useState(null)
 
   // roster tab
   const [rosterCourse, setRosterCourse]   = useState('')
@@ -107,6 +109,24 @@ export default function ProfessorDashboard() {
   }
 
   useEffect(() => { fetchCourses() }, [])
+
+  const handleArchive = async (course) => {
+    const action = course.is_archived ? 'unarchive' : 'archive'
+    if (!window.confirm(
+      course.is_archived
+        ? `Unarchive "${course.title}"? It will become active again.`
+        : `Archive "${course.title}"? All grades, attendance, and assignments are preserved. Students will no longer see it as active.`
+    )) return
+    setArchiving(course.id)
+    try {
+      await api.post(`/professor/courses/${course.id}/${action}`)
+      await fetchCourses()
+    } catch {
+      alert(`Failed to ${action} course.`)
+    } finally {
+      setArchiving(null)
+    }
+  }
 
   // --- Roster ---
   useEffect(() => {
@@ -400,9 +420,9 @@ export default function ProfessorDashboard() {
             ) : (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">
-                  <StatCard label="My Courses" value={courses.length} color="text-amber-400" />
-                  <StatCard label="Total Credits" value={courses.reduce((s, c) => s + (c.credits || 0), 0)} color="text-blue-300" />
-                  <StatCard label="Departments" value={new Set(courses.map(c => c.department).filter(Boolean)).size} color="text-emerald-400" />
+                  <StatCard label="Active Courses" value={courses.filter(c => !c.is_archived).length} color="text-amber-400" />
+                  <StatCard label="Total Credits" value={courses.filter(c => !c.is_archived).reduce((s, c) => s + (c.credits || 0), 0)} color="text-blue-300" />
+                  <StatCard label="Departments" value={new Set(courses.filter(c => !c.is_archived).map(c => c.department).filter(Boolean)).size} color="text-emerald-400" />
                 </div>
 
                 <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
@@ -417,8 +437,8 @@ export default function ProfessorDashboard() {
                   ) : (
                     <table className="w-full text-sm">
                       <tbody>
-                        {courses.slice(0, 5).map((c, i) => (
-                          <tr key={c.id} className={`hover:bg-slate-950/40 transition-colors ${i < courses.slice(0, 5).length - 1 ? 'border-b border-slate-800/60' : ''}`}>
+                        {courses.filter(c => !c.is_archived).slice(0, 5).map((c, i, arr) => (
+                          <tr key={c.id} className={`hover:bg-slate-950/40 transition-colors ${i < arr.length - 1 ? 'border-b border-slate-800/60' : ''}`}>
                             <td className="px-6 py-3.5 font-medium text-white">{c.title}</td>
                             <td className="px-6 py-3.5 text-slate-400 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>{c.code}</td>
                             <td className="px-6 py-3.5 text-slate-500 text-xs">{c.department || '—'}</td>
@@ -441,33 +461,91 @@ export default function ProfessorDashboard() {
         {/* COURSES */}
         {tab === 'courses' && (
           <div>
-            <div className="mb-8">
-              <p className="text-amber-500 text-xs font-medium uppercase tracking-[0.2em] mb-1">Teaching</p>
-              <h1 className="text-3xl font-semibold text-white tracking-tight">My Courses</h1>
+            <div className="flex items-end justify-between mb-8">
+              <div>
+                <p className="text-amber-500 text-xs font-medium uppercase tracking-[0.2em] mb-1">Teaching</p>
+                <h1 className="text-3xl font-semibold text-white tracking-tight">My Courses</h1>
+              </div>
+              {courses.some(c => c.is_archived) && (
+                <button
+                  onClick={() => setShowArchived(v => !v)}
+                  className={`text-xs font-medium px-4 py-2 rounded-lg border transition ${showArchived ? 'bg-slate-700 border-slate-600 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'}`}
+                >
+                  {showArchived ? 'Hide Archived' : `Show Archived (${courses.filter(c => c.is_archived).length})`}
+                </button>
+              )}
             </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-24 text-slate-500 text-sm">Loading courses…</div>
             ) : error ? (
               <div className="flex items-center justify-center py-24 text-red-400 text-sm">{error}</div>
-            ) : courses.length === 0 ? (
-              <EmptyState message="No courses assigned yet. Contact admin to create courses." />
+            ) : courses.filter(c => !c.is_archived).length === 0 && !showArchived ? (
+              <EmptyState message="No active courses. Contact admin to create courses." />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {courses.map(c => (
-                  <div key={c.id} className="bg-slate-800 border border-slate-700 hover:border-amber-500/40 rounded-xl p-6 transition-colors">
-                    <div className="flex items-start justify-between mb-3">
-                      <span className="text-xs font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
-                        {c.code}
-                      </span>
-                      <span className="text-xs text-slate-500">{c.credits} credits</span>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {courses.filter(c => !c.is_archived).map(c => (
+                    <div key={c.id} className="bg-slate-800 border border-slate-700 hover:border-amber-500/40 rounded-xl p-6 transition-colors group">
+                      <div className="flex items-start justify-between mb-3">
+                        <span className="text-xs font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
+                          {c.code}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500">{c.credits} credits</span>
+                          <button
+                            onClick={() => handleArchive(c)}
+                            disabled={archiving === c.id}
+                            title="Archive this course"
+                            className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-amber-400 transition-all p-1 rounded"
+                          >
+                            {archiving === c.id
+                              ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                              : <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-.375c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v.375c0 .621.504 1.125 1.125 1.125z" /></svg>
+                            }
+                          </button>
+                        </div>
+                      </div>
+                      <h3 className="text-white font-semibold mb-1">{c.title}</h3>
+                      {c.department && <p className="text-slate-500 text-xs mb-2">{c.department}</p>}
+                      {c.description && <p className="text-slate-400 text-sm leading-relaxed line-clamp-2">{c.description}</p>}
                     </div>
-                    <h3 className="text-white font-semibold mb-1">{c.title}</h3>
-                    {c.department && <p className="text-slate-500 text-xs mb-2">{c.department}</p>}
-                    {c.description && <p className="text-slate-400 text-sm leading-relaxed line-clamp-2">{c.description}</p>}
+                  ))}
+                </div>
+
+                {showArchived && courses.filter(c => c.is_archived).length > 0 && (
+                  <div className="mt-8">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-px flex-1 bg-slate-700" />
+                      <span className="text-xs text-slate-500 font-medium uppercase tracking-widest">Archived Courses</span>
+                      <div className="h-px flex-1 bg-slate-700" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {courses.filter(c => c.is_archived).map(c => (
+                        <div key={c.id} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 opacity-60 hover:opacity-80 transition-opacity group">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-slate-500 bg-slate-700/50 border border-slate-600/50 px-2 py-0.5 rounded">{c.code}</span>
+                              <span className="text-xs text-slate-600 bg-slate-700/30 border border-slate-700 px-2 py-0.5 rounded">Archived</span>
+                            </div>
+                            <button
+                              onClick={() => handleArchive(c)}
+                              disabled={archiving === c.id}
+                              title="Unarchive"
+                              className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-emerald-400 transition-all text-xs border border-slate-600 hover:border-emerald-500/50 px-2 py-1 rounded"
+                            >
+                              {archiving === c.id ? '…' : 'Unarchive'}
+                            </button>
+                          </div>
+                          <h3 className="text-slate-300 font-semibold mb-1">{c.title}</h3>
+                          {c.department && <p className="text-slate-600 text-xs mb-2">{c.department}</p>}
+                          {c.description && <p className="text-slate-500 text-sm leading-relaxed line-clamp-2">{c.description}</p>}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -488,7 +566,7 @@ export default function ProfessorDashboard() {
                 className="input-base w-full md:w-80"
               >
                 <option value="">— choose a course —</option>
-                {courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
+                {courses.filter(c => !c.is_archived).map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
               </select>
             </div>
 
@@ -555,7 +633,7 @@ export default function ProfessorDashboard() {
                 className="input-base w-full md:w-80"
               >
                 <option value="">— choose a course —</option>
-                {courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
+                {courses.filter(c => !c.is_archived).map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
               </select>
             </div>
 
@@ -708,7 +786,7 @@ export default function ProfessorDashboard() {
                 className="input-base w-full md:w-80"
               >
                 <option value="">— choose a course —</option>
-                {courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
+                {courses.filter(c => !c.is_archived).map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
               </select>
             </div>
 
@@ -864,7 +942,7 @@ export default function ProfessorDashboard() {
                       className="input-base"
                     >
                       <option value="">— select course —</option>
-                      {courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
+                      {courses.filter(c => !c.is_archived).map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
                     </select>
                   </Field>
                   {compCourse && (
@@ -981,7 +1059,7 @@ export default function ProfessorDashboard() {
                         disabled={!!editingGradeId}
                       >
                         <option value="">— select course —</option>
-                        {courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
+                        {courses.filter(c => !c.is_archived).map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
                       </select>
                     </Field>
                     <Field label="Student">
@@ -1070,7 +1148,7 @@ export default function ProfessorDashboard() {
                   className="input-base max-w-xs"
                 >
                   <option value="">— select course —</option>
-                  {courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
+                  {courses.filter(c => !c.is_archived).map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
                 </select>
               </div>
               {!gradeViewCourse ? (
@@ -1208,7 +1286,7 @@ export default function ProfessorDashboard() {
                     className="input-base"
                   >
                     <option value="">— select course —</option>
-                    {courses.map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
+                    {courses.filter(c => !c.is_archived).map(c => <option key={c.id} value={c.id}>{c.code} — {c.title}</option>)}
                   </select>
                 </div>
                 <div>

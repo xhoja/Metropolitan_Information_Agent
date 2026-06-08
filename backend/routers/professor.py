@@ -73,6 +73,28 @@ def get_courses(authorization: str = Header(...)):
     return res.data
 
 
+@router.post("/courses/{course_id}/archive")
+def archive_course(course_id: str, authorization: str = Header(...)):
+    token = authorization.replace("Bearer ", "")
+    prof_id = get_professor_id(token)
+    course = supabase.table("courses").select("id, professor_id").eq("id", course_id).execute().data
+    if not course or course[0]["professor_id"] != prof_id:
+        raise HTTPException(status_code=403, detail="Not your course")
+    supabase.table("courses").update({"is_archived": True}).eq("id", course_id).execute()
+    return {"message": "Course archived"}
+
+
+@router.post("/courses/{course_id}/unarchive")
+def unarchive_course(course_id: str, authorization: str = Header(...)):
+    token = authorization.replace("Bearer ", "")
+    prof_id = get_professor_id(token)
+    course = supabase.table("courses").select("id, professor_id").eq("id", course_id).execute().data
+    if not course or course[0]["professor_id"] != prof_id:
+        raise HTTPException(status_code=403, detail="Not your course")
+    supabase.table("courses").update({"is_archived": False}).eq("id", course_id).execute()
+    return {"message": "Course unarchived"}
+
+
 @router.get("/courses/{course_id}/components")
 def get_grade_components(course_id: str, authorization: str = Header(...)):
     token = authorization.replace("Bearer ", "")

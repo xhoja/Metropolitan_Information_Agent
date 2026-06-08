@@ -306,7 +306,7 @@ export default function StudentDashboard() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
                   <StatCard
                     label="Enrolled Courses"
-                    value={courses.length}
+                    value={courses.filter(e => !e.courses?.is_archived).length}
                     color="text-amber-400"
                   />
                   <StatCard
@@ -351,7 +351,7 @@ export default function StudentDashboard() {
                         : 0;
 
                       const recordedCourses = Object.keys(courseGroups).length;
-                      const totalCourses = courses.length;
+                      const totalCourses = courses.filter(e => !e.courses?.is_archived).length;
 
                       return {
                         value: Math.round(rate) + "%",
@@ -595,51 +595,72 @@ export default function StudentDashboard() {
                   No courses enrolled yet
                 </p>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {courses.map((enrollment) => (
-                  <div
-                    key={enrollment.id}
-                    onClick={() => setSelectedCourse(enrollment)}
-                    className="bg-slate-800 border border-slate-700 hover:border-amber-500/40 rounded-xl p-6 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <span className="text-xs font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
-                        {enrollment.courses?.code || "Unknown Code"}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        {enrollment.courses?.credits || 0} credits
-                      </span>
-                    </div>
-                    <h3 className="text-white font-semibold mb-1">
-                      {enrollment.courses?.title || "Unknown Course"}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-3 text-xs text-slate-400">
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                      Enrolled{" "}
-                      {enrollment.enrolled_at
-                        ? new Date(enrollment.enrolled_at).toLocaleDateString(
-                            "en-GB",
-                            { day: "numeric", month: "short", year: "numeric" },
-                          )
-                        : "—"}
+            ) : (() => {
+              const activeCourses   = courses.filter(e => !e.courses?.is_archived)
+              const archivedCourses = courses.filter(e => e.courses?.is_archived)
+              const CourseCard = ({ enrollment, archived }) => (
+                <div
+                  key={enrollment.id}
+                  onClick={() => setSelectedCourse(enrollment)}
+                  className={`rounded-xl p-6 transition-colors cursor-pointer border ${
+                    archived
+                      ? 'bg-slate-800/40 border-slate-700/50 hover:border-slate-600 opacity-60 hover:opacity-80'
+                      : 'bg-slate-800 border-slate-700 hover:border-amber-500/40'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <span className={`text-xs font-mono px-2 py-0.5 rounded border ${
+                      archived
+                        ? 'text-slate-500 bg-slate-700/50 border-slate-600/50'
+                        : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                    }`}>
+                      {enrollment.courses?.code || "Unknown Code"}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {archived && (
+                        <span className="text-xs text-slate-600 bg-slate-700/40 border border-slate-700 px-2 py-0.5 rounded">Past</span>
+                      )}
+                      <span className="text-xs text-slate-500">{enrollment.courses?.credits || 0} credits</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                  <h3 className={`font-semibold mb-1 ${archived ? 'text-slate-400' : 'text-white'}`}>
+                    {enrollment.courses?.title || "Unknown Course"}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-3 text-xs text-slate-400">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {archived ? 'Archived' : 'Enrolled'}{" "}
+                    {enrollment.enrolled_at
+                      ? new Date(enrollment.enrolled_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                      : "—"}
+                  </div>
+                </div>
+              )
+              return (
+                <>
+                  {activeCourses.length === 0 && archivedCourses.length > 0 ? (
+                    <p className="text-slate-500 text-sm mb-6">No active courses this semester.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {activeCourses.map(e => <CourseCard key={e.id} enrollment={e} archived={false} />)}
+                    </div>
+                  )}
+                  {archivedCourses.length > 0 && (
+                    <div className="mt-8">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="h-px flex-1 bg-slate-700" />
+                        <span className="text-xs text-slate-500 font-medium uppercase tracking-widest">Past Courses</span>
+                        <div className="h-px flex-1 bg-slate-700" />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {archivedCourses.map(e => <CourseCard key={e.id} enrollment={e} archived={true} />)}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
           </div>
         );
 

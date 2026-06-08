@@ -47,6 +47,12 @@ export default function FinanceTab() {
   const [schSaving, setSchSaving]     = useState(false)
   const [schError, setSchError]       = useState('')
 
+  // edit total fee
+  const [editingFee, setEditingFee]   = useState(false)
+  const [feeInput, setFeeInput]       = useState('')
+  const [feeSaving, setFeeSaving]     = useState(false)
+  const [feeError, setFeeError]       = useState('')
+
   const loadMajorFees = () => {
     setMfLoading(true)
     api.get('/admin/finance/major-fees')
@@ -79,7 +85,13 @@ export default function FinanceTab() {
     setAssignError('')
     setInstError('')
     setTxError('')
-    if (s.fee) loadDetail(s.fee.id)
+    if (s.fee) {
+      loadDetail(s.fee.id)
+    } else if (s.major) {
+      // pre-fill assign form from matching major fee
+      const mf = majorFees.find(f => f.major === s.major)
+      if (mf) setAssignForm({ academic_year: mf.academic_year, agreed_amount: String(mf.annual_fee) })
+    }
   }
 
   const handleMfSave = async (e) => {
@@ -210,6 +222,24 @@ export default function FinanceTab() {
     }
   }
 
+  const handleUpdateFee = async () => {
+    setFeeSaving(true); setFeeError('')
+    try {
+      await api.put(`/admin/finance/student-fees/${detail.fee.id}`, {
+        student_id: selected.student_id,
+        academic_year: detail.fee.academic_year,
+        agreed_amount: Number(feeInput),
+      })
+      setEditingFee(false)
+      loadDetail(detail.fee.id)
+      loadStudents()
+    } catch (err) {
+      setFeeError(err.response?.data?.detail || 'Failed to update fee.')
+    } finally {
+      setFeeSaving(false)
+    }
+  }
+
   const handleRemoveScholarship = async () => {
     if (!window.confirm('Remove scholarship? This restores the full fee and recalculates installments.')) return
     try {
@@ -254,9 +284,43 @@ export default function FinanceTab() {
             <>
               <div className="grid grid-cols-4 gap-4 mb-4">
                 <div className="bg-blue-600/20 border border-blue-500/30 rounded-xl p-5">
-                  <p className="text-xs text-blue-300 uppercase tracking-widest mb-1">Total Fee</p>
-                  <p className="text-2xl font-semibold text-white">{fmt(originalFee)}</p>
-                  <p className="text-xs text-blue-400 mt-1">{fee.academic_year}</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs text-blue-300 uppercase tracking-widest">Total Fee</p>
+                    {!editingFee && (
+                      <button
+                        onClick={() => { setEditingFee(true); setFeeInput(String(originalFee)); setFeeError('') }}
+                        className="text-blue-400 hover:text-blue-200 transition"
+                        title="Edit total fee"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487a2.25 2.25 0 013.182 3.182L6.75 19.963l-4.5 1.5 1.5-4.5L16.862 3.487z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  {editingFee ? (
+                    <div className="flex flex-col gap-1.5 mt-1">
+                      <input
+                        type="number" min="1" step="0.01"
+                        value={feeInput}
+                        onChange={e => setFeeInput(e.target.value)}
+                        className="fin-input text-sm py-1 px-2"
+                        style={{ minWidth: 0 }}
+                      />
+                      {feeError && <p className="text-rose-400 text-xs">{feeError}</p>}
+                      <div className="flex gap-2">
+                        <button onClick={handleUpdateFee} disabled={feeSaving} className="fin-btn-primary text-xs py-1 px-3">
+                          {feeSaving ? '…' : 'Save'}
+                        </button>
+                        <button onClick={() => setEditingFee(false)} className="fin-btn-cancel text-xs py-1">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-semibold text-white">{fmt(originalFee)}</p>
+                      <p className="text-xs text-blue-400 mt-1">{fee.academic_year}</p>
+                    </>
+                  )}
                 </div>
                 <div className={`rounded-xl p-5 border ${scholarship > 0 ? 'bg-violet-600/20 border-violet-500/30' : 'bg-slate-700/30 border-slate-700'}`}>
                   <p className="text-xs text-violet-300 uppercase tracking-widest mb-1">Scholarship</p>
@@ -327,7 +391,14 @@ export default function FinanceTab() {
         {/* Assign fee (if no fee yet) */}
         {!fee && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-8">
-            <h2 className="text-sm font-semibold text-white mb-4">Assign Fee</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-white">Assign Fee</h2>
+              {majorFees.find(f => f.major === selected.major) && (
+                <span className="text-xs text-blue-400">
+                  Pre-filled from major fee: {fmt(majorFees.find(f => f.major === selected.major)?.annual_fee)}
+                </span>
+              )}
+            </div>
             <form onSubmit={handleAssign} className="flex flex-wrap gap-3 items-end">
               <div className="flex flex-col gap-1">
                 <label className="text-slate-400 text-xs uppercase tracking-wider">Academic Year</label>

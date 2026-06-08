@@ -41,6 +41,8 @@ export default function AdminDashboard() {
   const [saving, setSaving]         = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [formError, setFormError]   = useState('')
+  const [userRoleFilter, setUserRoleFilter] = useState('')
+  const [rolesFilter, setRolesFilter] = useState('')
 
   const fetchUsers = async () => {
     try {
@@ -189,6 +191,16 @@ export default function AdminDashboard() {
               </button>
             </div>
 
+            <div className="flex gap-2 mb-4">
+              {['', 'admin', 'professor', 'student'].map(r => (
+                <button
+                  key={r}
+                  onClick={() => setUserRoleFilter(r)}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-medium transition border capitalize ${userRoleFilter === r ? 'bg-blue-500/20 border-blue-500/50 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'}`}
+                >{r === '' ? 'All' : r}</button>
+              ))}
+            </div>
+
             <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
               {loading ? (
                 <div className="flex items-center justify-center py-24 text-slate-500 text-sm">Loading users…</div>
@@ -204,8 +216,8 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((user, i) => (
-                      <tr key={user.id} className={`border-b border-slate-800/60 hover:bg-slate-950/40 transition-colors ${i === users.length - 1 ? 'border-b-0' : ''}`}>
+                    {(userRoleFilter ? users.filter(u => u.role === userRoleFilter) : users).map((user, i, arr) => (
+                      <tr key={user.id} className={`border-b border-slate-800/60 hover:bg-slate-950/40 transition-colors ${i === arr.length - 1 ? 'border-b-0' : ''}`}>
                         <td className="px-6 py-4 font-medium text-white">{user.name}</td>
                         <td className="px-6 py-4 text-slate-400 text-xs" style={{ fontFamily: "'DM Mono', monospace" }}>{user.email}</td>
                         <td className="px-6 py-4">
@@ -245,6 +257,15 @@ export default function AdminDashboard() {
               <p className="text-blue-300 text-xs font-medium uppercase tracking-[0.2em] mb-1">Permissions</p>
               <h1 className="text-3xl font-semibold text-white tracking-tight">Role Assignment</h1>
             </div>
+            <div className="flex gap-2 mb-4">
+              {['', 'admin', 'professor', 'student'].map(r => (
+                <button
+                  key={r}
+                  onClick={() => setRolesFilter(r)}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-medium transition border capitalize ${rolesFilter === r ? 'bg-blue-500/20 border-blue-500/50 text-blue-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'}`}
+                >{r === '' ? 'All' : r}</button>
+              ))}
+            </div>
             <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
@@ -255,11 +276,11 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user, i) => (
+                  {(rolesFilter ? users.filter(u => u.role === rolesFilter) : users).map((user, i, arr) => (
                     <RoleRow
                       key={user.id}
                       user={user}
-                      isLast={i === users.length - 1}
+                      isLast={i === arr.length - 1}
                       onRoleChange={async (newRole) => {
                         await api.put(`/admin/users/${user.id}`, { ...user, role: newRole })
                         await fetchUsers()

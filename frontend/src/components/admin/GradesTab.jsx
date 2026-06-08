@@ -27,6 +27,7 @@ export default function GradesTab() {
   const [error, setError]       = useState('')
   const [search, setSearch]     = useState('')
   const [semFilter, setSemFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
 
   useEffect(() => {
     api.get('/admin/grades')
@@ -36,13 +37,17 @@ export default function GradesTab() {
   }, [])
 
   const semesters = [...new Set(grades.map(g => g.semester).filter(Boolean))]
+    .filter(s => !/summer|winter/i.test(s))
+
+  const gradeTypes = [...new Set(grades.map(g => g.grade_type).filter(Boolean))].sort()
 
   const filtered = grades.filter(g => {
     const matchSearch =
       g.student_name?.toLowerCase().includes(search.toLowerCase()) ||
       g.course_title?.toLowerCase().includes(search.toLowerCase())
-    const matchSem = semFilter ? g.semester === semFilter : true
-    return matchSearch && matchSem
+    const matchSem  = semFilter  ? g.semester    === semFilter  : true
+    const matchType = typeFilter ? g.grade_type  === typeFilter : true
+    return matchSearch && matchSem && matchType
   })
 
   const avg = grades.length
@@ -103,7 +108,7 @@ export default function GradesTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-800">
-                {['Student', 'Course', 'Semester', 'Points', 'Albanian', 'Grade'].map(h => (
+                {['Student', 'Course', 'Semester', 'Type', 'Weight', 'Points', 'Albanian', 'Grade'].map(h => (
                   <th key={h} className="text-left px-6 py-4 text-slate-500 font-medium text-xs uppercase tracking-widest">{h}</th>
                 ))}
               </tr>
@@ -116,6 +121,8 @@ export default function GradesTab() {
                     <td className="px-6 py-4 font-medium text-white">{g.student_name || g.student_id}</td>
                     <td className="px-6 py-4 text-slate-400">{g.course_title || g.course_id}</td>
                     <td className="px-6 py-4 text-slate-500 text-sm">{g.semester}</td>
+                    <td className="px-6 py-4 text-slate-400 text-sm">{g.grade_type || '—'}</td>
+                    <td className="px-6 py-4 text-slate-400 text-sm">{g.weight != null ? `${g.weight}%` : '—'}</td>
                     <td className="px-6 py-4 text-white font-mono text-sm">{g.value}/100</td>
                     <td className="px-6 py-4">
                       <span className={`text-sm font-semibold ${alb >= 9 ? 'text-emerald-400' : alb >= 7 ? 'text-blue-400' : alb >= 5 ? 'text-amber-400' : 'text-rose-400'}`}>{alb}/10</span>
